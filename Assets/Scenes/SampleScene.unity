@@ -156,7 +156,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
   m_AnchorMax: {x: 0, y: 0}
-  m_AnchoredPosition: {x: 0, y: 1.5}
+  m_AnchoredPosition: {x: 0, y: 1.272}
   m_SizeDelta: {x: 400, y: 200}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &34688617
@@ -416,17 +416,17 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::LobbyManager
   ShowTopMostFoldoutHeaderGroup: 1
-  panelConexion: {fileID: 0}
-  panelColores: {fileID: 0}
-  panelEspera: {fileID: 0}
-  btnRojo: {fileID: 0}
-  btnAzul: {fileID: 0}
-  btnVerde: {fileID: 0}
-  btnAmarillo: {fileID: 0}
-  btnContinuar: {fileID: 0}
-  btnIniciarPartida: {fileID: 0}
-  textoEstadoEspera: {fileID: 0}
-  textoListaJugadores: {fileID: 0}
+  panelConexion: {fileID: 766206697}
+  panelColores: {fileID: 335619363}
+  panelEspera: {fileID: 676924181}
+  btnRojo: {fileID: 231260737}
+  btnAzul: {fileID: 1443006991}
+  btnVerde: {fileID: 1005140002}
+  btnAmarillo: {fileID: 306680824}
+  btnContinuar: {fileID: 2026068687}
+  btnIniciarPartida: {fileID: 1209228760}
+  textoEstadoEspera: {fileID: 54601158}
+  textoListaJugadores: {fileID: 500881528}
 --- !u!4 &63160075
 Transform:
   m_ObjectHideFlags: 0
@@ -1537,9 +1537,12 @@ MonoBehaviour:
   tiempoDeJuego: 30
   tiempoRestanteNet:
     m_InternalValue: 30
-  entornoJuego: {fileID: 0}
-  listaDeObjetivos: []
-  contenedorSpawners: {fileID: 0}
+  entornoJuego: {fileID: 2255095262166456443}
+  listaDeObjetivos:
+  - {fileID: 2319522104573930817, guid: d37b6aea30631d94b8f9b2b234be34be, type: 3}
+  - {fileID: 6644021723153141339, guid: 0e7f9760ed69deb43ade921ffe268dc4, type: 3}
+  - {fileID: 5641187626466492266, guid: c94b9b9b408b04c4183499ed1f543ddc, type: 3}
+  contenedorSpawners: {fileID: 932857129}
   intervaloSpawn: 1.5
 --- !u!4 &457324747
 Transform:
@@ -1697,7 +1700,7 @@ GameObject:
   - component: {fileID: 500881529}
   - component: {fileID: 500881528}
   m_Layer: 0
-  m_Name: Text (TMP)
+  m_Name: LISTADO PERSONAJES_TMP
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -2564,7 +2567,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!4 &741807857
 Transform:
   m_ObjectHideFlags: 0
@@ -2630,7 +2633,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!224 &766206698
 RectTransform:
   m_ObjectHideFlags: 0
@@ -5049,7 +5052,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0.5}
   m_AnchorMax: {x: 1, y: 0.5}
-  m_AnchoredPosition: {x: 0, y: 68.9}
+  m_AnchoredPosition: {x: 0, y: 72.1}
   m_SizeDelta: {x: -91.1, y: 48.29309}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &1531739589
@@ -5322,22 +5325,22 @@ MonoBehaviour:
     m_InternalValue: 0
   jugadoresListos:
     m_InternalValue: 0
-  bloqueInicio: {fileID: 0}
-  bloqueRobot: {fileID: 0}
+  bloqueInicio: {fileID: 741807856}
+  bloqueRobot: {fileID: 1698466022}
   bloqueUI_Decision: {fileID: 0}
-  bloqueInstrucciones: {fileID: 0}
-  bloqueGameplay: {fileID: 0}
-  bloqueVictoria: {fileID: 0}
-  entornoVR: {fileID: 0}
-  robotAnimator: {fileID: 0}
-  audioSource: {fileID: 0}
+  bloqueInstrucciones: {fileID: 1306586047}
+  bloqueGameplay: {fileID: 1088407577}
+  bloqueVictoria: {fileID: 319505379}
+  entornoVR: {fileID: 2255095262166456443}
+  robotAnimator: {fileID: 8218191206645911120}
+  audioSource: {fileID: 8218191206645911119}
   audioIntroduccion: {fileID: 0}
   audioInstrucciones: {fileID: 0}
   audioVictoria: {fileID: 0}
-  botonJugarIndividual: {fileID: 0}
-  textoResultados: {fileID: 0}
-  botonReiniciarHost: {fileID: 0}
-  tiempoEntrada: 5
+  botonJugarIndividual: {fileID: 222406738}
+  textoResultados: {fileID: 550592942}
+  botonReiniciarHost: {fileID: 552645912}
+  tiempoEntrada: 3
 --- !u!4 &1688462061
 Transform:
   m_ObjectHideFlags: 0
@@ -6927,6 +6930,11 @@ PrefabInstance:
       insertIndex: -1
       addedObject: {fileID: 1892708526}
   m_SourcePrefab: {fileID: 100100000, guid: 1d6a323e4774c9e4991815ec07b00d37, type: 3}
+--- !u!1 &2255095262166456443 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 7897229321676355829, guid: 1d6a323e4774c9e4991815ec07b00d37, type: 3}
+  m_PrefabInstance: {fileID: 2255095262166456442}
+  m_PrefabAsset: {fileID: 0}
 --- !u!4 &2255095262166456444 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: 5652482021822803215, guid: 1d6a323e4774c9e4991815ec07b00d37, type: 3}
@@ -7261,6 +7269,16 @@ PrefabInstance:
     m_AddedGameObjects: []
     m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: a3dc0faa7a244c74b937be3ad689b38b, type: 3}
+--- !u!82 &8218191206645911119 stripped
+AudioSource:
+  m_CorrespondingSourceObject: {fileID: 6940356540466419002, guid: a3dc0faa7a244c74b937be3ad689b38b, type: 3}
+  m_PrefabInstance: {fileID: 8218191206645911118}
+  m_PrefabAsset: {fileID: 0}
+--- !u!95 &8218191206645911120 stripped
+Animator:
+  m_CorrespondingSourceObject: {fileID: 5556110509912192539, guid: a3dc0faa7a244c74b937be3ad689b38b, type: 3}
+  m_PrefabInstance: {fileID: 8218191206645911118}
+  m_PrefabAsset: {fileID: 0}
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0
