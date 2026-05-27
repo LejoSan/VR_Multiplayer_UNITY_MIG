@@ -125,7 +125,7 @@ public class MainGameManager : NetworkBehaviour
         AumentarContadorListosServerRpc();
     }
 
-    [ServerRpc(RequireOwnership = false)]
+    [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Everyone)]
     private void AumentarContadorListosServerRpc()
     {
         jugadoresListos.Value++;

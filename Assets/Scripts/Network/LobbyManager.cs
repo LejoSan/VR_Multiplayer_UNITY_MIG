@@ -7,10 +7,13 @@ public class LobbyManager : NetworkBehaviour
 {
     public static LobbyManager Instance;
 
-    [Header("--- Paneles del Lobby (Los 3 Pasos) ---")]
+    [Header("--- Paneles del Lobby Bloque 1 ---")]
     public GameObject panelConexion;
     public GameObject panelColores;
     public GameObject panelEspera;
+
+    // ¡NUEVO! Referencia al maniquí para despertarlo
+    public GameObject xrLobbyManiqui;
 
     [Header("--- Botones de Colores (Paso 2) ---")]
     public Button btnRojo;
@@ -31,6 +34,8 @@ public class LobbyManager : NetworkBehaviour
     private NetworkVariable<ulong> dueñoAmarillo = new NetworkVariable<ulong>(999, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
 
     private int colorSeleccionadoLocal = -1;
+
+
 
     void Awake()
     {
@@ -90,6 +95,26 @@ public class LobbyManager : NetworkBehaviour
         NetworkManager.Singleton.NetworkConfig.ConnectionData = payload;
     }
 
+    // --- BOTÓN DE ATRÁS / DESCONEXIÓN ---
+    public void BTN_Atras_Desconectar()
+    {
+        // 1. Apagamos el motor de red y destruimos el cuerpo oficial
+        if (NetworkManager.Singleton != null)
+        {
+            NetworkManager.Singleton.Shutdown();
+        }
+
+        // 2. ¡Despertamos al maniquí para recuperar las manos y la cámara!
+        if (xrLobbyManiqui != null)
+        {
+            xrLobbyManiqui.SetActive(true);
+        }
+
+        // 3. Restauramos la UI
+        if (panelConexion) panelConexion.SetActive(true);
+        if (panelColores) panelColores.SetActive(false);
+        if (panelEspera) panelEspera.SetActive(false);
+    }
     private void IrAPanelColores()
     {
         panelConexion.SetActive(false);
@@ -133,7 +158,6 @@ public class LobbyManager : NetworkBehaviour
 
     // === PASO 2: SELECCIÓN DE COLOR DE RED
 
-
     public override void OnNetworkSpawn()
     {
         // Escuchar cuando cambien los dueños de los colores para actualizar la UI de todos
@@ -158,7 +182,7 @@ public class LobbyManager : NetworkBehaviour
         SolicitarColorServerRpc(indiceColor, NetworkManager.Singleton.LocalClientId);
     }
 
-    [ServerRpc(RequireOwnership = false)]
+    [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Everyone)]
     private void SolicitarColorServerRpc(int colorIndex, ulong idJugador)
     {
         LiberarColoresPrevios(idJugador);

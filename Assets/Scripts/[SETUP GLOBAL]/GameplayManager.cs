@@ -1,4 +1,4 @@
-using UnityEngine;
+﻿using UnityEngine;
 using System.Collections;
 using System.Collections.Generic;
 using Unity.Netcode;
@@ -7,12 +7,10 @@ public class GameplayManager : NetworkBehaviour
 {
     public static GameplayManager Instance;
 
-    [Header("--- Configuraci�n de la Partida ---")]
+
+    [Header("--- Configuración de la Partida ---")]
     public float tiempoDeJuego = 30f;
-
-    // �NUEVO! El tiempo sincronizado para todos
     public NetworkVariable<float> tiempoRestanteNet = new NetworkVariable<float>(30f, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
-
     private bool juegoActivo = false;
 
     [Header("--- Entorno ---")]
@@ -23,6 +21,13 @@ public class GameplayManager : NetworkBehaviour
     public Transform contenedorSpawners;
     public float intervaloSpawn = 1.5f;
     private List<Transform> puntosDeSpawn = new List<Transform>();
+
+    [Header("--- Arma de los Jugadores ---")]
+    public GameObject prefabArma;
+
+
+    // ¡NUEVO! Lista interna del servidor para recordar qué armas ha creado
+    private List<NetworkObject> armasSpawneadas = new List<NetworkObject>();
 
     // Lista de pantallas de armas registradas para actualizarles el reloj localmente
     private List<WeaponDisplay> pantallasDeArmas = new List<WeaponDisplay>();
@@ -47,7 +52,9 @@ public class GameplayManager : NetworkBehaviour
         }
     }
 
-    // --- INICIO DEL JUEGO (Llamado por el MainGameManager) ---
+
+
+    // --- INICIO DEL JUEGO (Llamado solo cuando se cumple la condición de jugar) ---
     public void IniciarPartida()
     {
         if (!IsServer) return;
@@ -57,13 +64,72 @@ public class GameplayManager : NetworkBehaviour
 
         if (entornoJuego) entornoJuego.SetActive(true);
 
-        Debug.Log("[SERVER] Arrancando reloj y spawn de asteroides...");
+        // --- NUEVO: Spawn de jugadores en puntos concretos ---
+        SpawnearJugadoresEnPuntos();
+
+        // --- NUEVO: Spawn de armas ---
+        SpawnArmasParaTodos();
+
         StartCoroutine(RutinaSpawn());
     }
 
+    private void SpawnearJugadoresEnPuntos()
+    {
+        if (!IsServer) return;
+
+        // Recorremos a todos los jugadores conectados
+        int i = 0;
+        foreach (var client in NetworkManager.Singleton.ConnectedClientsList)
+        {
+            // 1. Instanciamos el prefab original del jugador
+            // Asegúrate de que el Prefab del Jugador esté en tu carpeta de Assets y no en la escena
+            GameObject playerInstance = Instantiate(NetworkManager.Singleton.NetworkConfig.PlayerPrefab);
+
+            // 2. Le asignamos la posición del punto de spawn
+            // Si tienes 4 puntos, nos aseguramos de no salirnos del índice
+            if (i < puntosDeSpawn.Count)
+            {
+                playerInstance.transform.position = puntosDeSpawn[i].position;
+                playerInstance.transform.rotation = puntosDeSpawn[i].rotation;
+            }
+
+            // 3. Lo registramos en la red como el objeto de ese jugador
+            playerInstance.GetComponent<NetworkObject>().SpawnAsPlayerObject(client.ClientId);
+
+            i++;
+        }
+    }
+    private void SpawnArmasParaTodos()
+    {
+        if (prefabArma == null) return;
+
+        // Limpiamos la lista por si acaso venimos de una partida anterior
+        armasSpawneadas.Clear();
+
+        foreach (var client in NetworkManager.Singleton.ConnectedClientsList)
+        {
+            if (client.PlayerObject != null)
+            {
+                Transform playerTransform = client.PlayerObject.transform;
+                Vector3 posicionArma = playerTransform.position + (playerTransform.forward * 0.5f) + (Vector3.up * 1.2f);
+
+                GameObject miArma = Instantiate(prefabArma, posicionArma, playerTransform.rotation);
+                NetworkObject netObj = miArma.GetComponent<NetworkObject>();
+
+                if (netObj != null)
+                {
+                    // Le damos el arma al jugador
+                    netObj.SpawnWithOwnership(client.ClientId);
+                    // 🎯 LA GUARDAMOS EN LA MEMORIA DEL SERVIDOR
+                    armasSpawneadas.Add(netObj);
+                }
+            }
+        }
+    }
+
+
     void Update()
     {
-        // El reloj lo controla �nicamente el Servidor
         if (IsServer && juegoActivo)
         {
             tiempoRestanteNet.Value -= Time.deltaTime;
@@ -75,7 +141,6 @@ public class GameplayManager : NetworkBehaviour
             }
         }
 
-        // Todos actualizan las pantallas de sus armas leyendo la variable de red
         if (juegoActivo)
         {
             foreach (var pantalla in pantallasDeArmas)
@@ -103,18 +168,13 @@ public class GameplayManager : NetworkBehaviour
 
         if (asteroideElegido != null)
         {
-            // 1. Instanciamos el objeto en el servidor
             GameObject nuevoAsteroide = Instantiate(asteroideElegido, puntoAleatorio.position, puntoAleatorio.rotation);
-
-            // 2. �LA MAGIA! Le decimos a Netcode que lo haga aparecer en todos los visores
             NetworkObject netObj = nuevoAsteroide.GetComponent<NetworkObject>();
-            if (netObj != null)
-            {
-                netObj.Spawn();
-            }
+            if (netObj != null) netObj.Spawn();
         }
     }
 
+    // --- TRANSICIÓN AL PANEL DE RESULTADOS (BLOQUE 5) ---
     void FinalizarPartida()
     {
         if (!IsServer) return;
@@ -122,7 +182,19 @@ public class GameplayManager : NetworkBehaviour
         juegoActivo = false;
         StopAllCoroutines();
 
-        // Eliminar todos los asteroides de la red
+        Debug.Log("[SERVER] Tiempo agotado. Limpiando escena para el panel de resultados...");
+
+        // 💥 LIMPIEZA 1: Eliminar todas las armas de los jugadores de la red
+        foreach (var armaNetObj in armasSpawneadas)
+        {
+            if (armaNetObj != null && armaNetObj.IsSpawned)
+            {
+                armaNetObj.Despawn(); // Desaparece instantáneamente de todas las gafas
+            }
+        }
+        armasSpawneadas.Clear(); // Vaciamos la lista para la siguiente ronda
+
+        // 💥 LIMPIEZA 2: Eliminar todos los asteroides sobrantes de la red
         var objetivos = FindObjectsByType<AsteroidTarget>(FindObjectsSortMode.None);
         foreach (var obj in objetivos)
         {
@@ -132,24 +204,19 @@ public class GameplayManager : NetworkBehaviour
             }
         }
 
-        // Avisar al MainGameManager para que muestre la UI de Victoria/Podio
+        // 3. Avisamos al MainGameManager para que encienda el Panel de Puntuaciones final (Bloque 5)
         if (MainGameManager.Instance != null)
         {
             MainGameManager.Instance.FinalizarExperienciaCompleta();
         }
     }
-    // --- ZONA DE DESARROLLADOR (DEBUG) ---
+
     public void Debug_ForzarFinal()
     {
-        // En multijugador, solo el servidor tiene autoridad para forzar el final
         if (IsServer && juegoActivo)
         {
             tiempoRestanteNet.Value = 0;
             FinalizarPartida();
-        }
-        else
-        {
-            Debug.LogWarning("Solo el HOST puede forzar el final de la partida con F2.");
         }
     }
 }

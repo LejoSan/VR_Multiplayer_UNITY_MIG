@@ -54,7 +54,7 @@ public class Arma : NetworkBehaviour
         DispararServerRpc(miID, puntaDelArma.position, rotacionCorregida);
     }
 
-    [ServerRpc(RequireOwnership = false)]
+    [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Everyone)]
     private void DispararServerRpc(ulong idTirador, Vector3 posicion, Quaternion rotacion)
     {
         // El servidor crea el láser...

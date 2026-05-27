@@ -1,44 +1,51 @@
 using UnityEngine;
+using System.Collections;
 using Unity.Netcode;
 
 public class PlayerNetworkSetup : NetworkBehaviour
 {
-    [Header("Componentes locales a desactivar si no es el dueño")]
-    public GameObject cameraVisuals; // Tu Main Camera de VR
+    [Header("Componentes a apagar en los clones")]
+    public Camera camaraVR;
     public AudioListener audioListener;
+    public GameObject[] controlesYRayos;
 
-    // Lista de componentes de XR Interaction Toolkit que controlan el Input
-    private MonoBehaviour[] componentesXR;
-
-    void Start()
+    public override void OnNetworkSpawn()
     {
-        // Buscamos todos los componentes de XR en este Rig (manos, lococión, etc.)
-        componentesXR = GetComponentsInChildren<MonoBehaviour>();
-
-        if (!IsOwner)
+        if (IsOwner)
         {
-            // --- JUGADOR REMOTO (El "NPC" que ves de tus amigos) ---
-            Debug.Log("Configurando clon de red como avatar visual.");
-
-            // Desactivamos su cámara y su audio para no escuchar ni ver a través de él
-            if (cameraVisuals != null) cameraVisuals.SetActive(false);
-            if (audioListener != null) audioListener.enabled = false;
-
-            // Desactivamos sus scripts de tracking e input para que no controlen nuestro visor
-            foreach (var comp in componentesXR)
+            // 1. Tomamos la posición del maniquí del lobby
+            GameObject maniquiLobby = GameObject.Find("XR_Lobby");
+            if (maniquiLobby != null)
             {
-                // Desactivamos componentes de XRI, tracking de manos, etc.
-                if (comp.GetType().Namespace != null && comp.GetType().Namespace.Contains("XR"))
-                {
-                    comp.enabled = false;
-                }
+                transform.position = maniquiLobby.transform.position;
+                transform.rotation = maniquiLobby.transform.rotation;
+
+                // 2. Desactivamos (no destruimos) el maniquí
+                maniquiLobby.SetActive(false);
             }
         }
         else
         {
-            // --- JUGADOR LOCAL (Tú mismo) ---
-            Debug.Log("¡Este soy yo! Control total activado.");
-            // Aquí puedes activar mallas visuales invisibles para ti mismo si no quieres ver tu propio cuerpo flotando.
+            // 3. Apagamos los componentes de otros jugadores con un pequeño retraso
+            // para no interferir con la inicialización del visor VR
+            StartCoroutine(ApagarComponentesConRetraso());
+        }
+    }
+
+    private IEnumerator ApagarComponentesConRetraso()
+    {
+        // Esperamos un frame para que la cámara y el visor terminen su calibración inicial
+        yield return null;
+
+        if (camaraVR != null) camaraVR.enabled = false;
+
+        // Dejamos el AudioListener activo por ahora para descartar errores de sonido,
+        // pero si escuchas ecos raros, puedes descomentar la siguiente línea:
+        // if (audioListener != null) audioListener.enabled = false;
+
+        foreach (var control in controlesYRayos)
+        {
+            if (control != null) control.SetActive(false);
         }
     }
 }

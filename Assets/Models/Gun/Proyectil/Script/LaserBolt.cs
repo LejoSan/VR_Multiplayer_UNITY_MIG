@@ -10,7 +10,10 @@ public class LaserBolt : NetworkBehaviour
 
     [Header("Efectos Visuales (Color)")]
     public Renderer renderLaser; // La malla 3D de tu láser
-    
+
+    // ¡NUEVO! Seguro anti-doble impacto
+    private bool yaDestruido = false;
+
 
     // Variable de red que guarda quién disparó este láser
     public NetworkVariable<ulong> idDueño = new NetworkVariable<ulong>(999, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
@@ -80,9 +83,23 @@ public class LaserBolt : NetworkBehaviour
 
     void DestruirLaser()
     {
-        if (IsServer && GetComponent<NetworkObject>().IsSpawned)
+        // Si ya chocamos hace un milisegundo, abortamos
+        if (yaDestruido) return;
+
+        // Buscamos el componente de red de forma segura
+        NetworkObject miNetObj = GetComponent<NetworkObject>();
+
+        // Si somos el servidor, el objeto tiene componente de red, y sigue vivo en la red
+        if (IsServer && miNetObj != null && miNetObj.IsSpawned)
         {
-            GetComponent<NetworkObject>().Despawn();
+            yaDestruido = true; // Activamos el seguro
+            miNetObj.Despawn(); // Lo destruimos para todos
+        }
+        else if (miNetObj == null)
+        {
+            // Solo por si acaso olvidaste ponerle el componente en el inspector
+            Debug.LogWarning("¡Aviso! Al láser le falta el componente NetworkObject.");
+            Destroy(gameObject);
         }
     }
 }

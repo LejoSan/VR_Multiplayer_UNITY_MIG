@@ -1116,7 +1116,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Unity.Netcode.Runtime::Unity.Netcode.NetworkObject
-  GlobalObjectIdHash: 2691006858
+  GlobalObjectIdHash: 3677282603
   InScenePlacedSourceGlobalObjectIdHash: 0
   DeferredDespawnTick: 0
   Ownership: 1
@@ -1142,8 +1142,10 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: '::'
   ShowTopMostFoldoutHeaderGroup: 1
-  cameraVisuals: {fileID: 1767192433}
+  camaraVR: {fileID: 0}
   audioListener: {fileID: 1767192437}
+  controlesYRayos: []
+  prefabArma: {fileID: 954894910799589832, guid: 48832c3f5d5344546aa495eee91174e4, type: 3}
 --- !u!114 &8904026606679824390
 MonoBehaviour:
   m_ObjectHideFlags: 0

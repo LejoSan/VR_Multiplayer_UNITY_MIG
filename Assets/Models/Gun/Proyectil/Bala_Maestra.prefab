@@ -47,7 +47,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Unity.Netcode.Runtime::Unity.Netcode.NetworkObject
-  GlobalObjectIdHash: 3491416055
+  GlobalObjectIdHash: 3036049483
   InScenePlacedSourceGlobalObjectIdHash: 0
   DeferredDespawnTick: 0
   Ownership: 1
@@ -75,7 +75,7 @@ MonoBehaviour:
   ShowTopMostFoldoutHeaderGroup: 1
   velocidad: 20
   tiempoDeVida: 3
-  efectoImpacto: {fileID: 0}
+  efectoImpacto: {fileID: 7904898002847524615, guid: a2ccf81a1d5b163448ebdf66b5e746d6, type: 3}
   renderLaser: {fileID: 6842810749353964312}
   "idDue\xF1o":
     m_InternalValue: 999
