@@ -53,25 +53,48 @@ public class Arma : NetworkBehaviour
         ulong miID = NetworkManager.Singleton.LocalClientId;
         DispararServerRpc(miID, puntaDelArma.position, rotacionCorregida);
     }
-
     [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Everyone)]
     private void DispararServerRpc(ulong idTirador, Vector3 posicion, Quaternion rotacion)
     {
-        // El servidor crea el láser...
+        // 1. El servidor crea el objeto físico localmente
         GameObject nuevoLaser = Instantiate(prefabLaser, posicion, rotacion);
 
-        // Buscamos el script de forma segura en la raíz o en los hijos
+        // 2. Buscamos el NetworkObject en la raíz o en los hijos
+        NetworkObject netObj = nuevoLaser.GetComponentInParent<NetworkObject>() ?? nuevoLaser.GetComponentInChildren<NetworkObject>();
+
+        if (netObj != null)
+        {
+            // 🔥 ¡PRIMERO SPAWNEAMOS! Ahora el objeto ya vive oficialmente en la red
+            netObj.Spawn();
+        }
+
+        // 3. ¡AHORA SÍ! Modificamos la NetworkVariable de forma segura sin advertencias
         LaserBolt scriptLaser = nuevoLaser.GetComponentInChildren<LaserBolt>();
         if (scriptLaser != null)
         {
             scriptLaser.idDueño.Value = idTirador;
         }
-
-        // Buscamos el NetworkObject en la raíz o en los hijos y lo spawneamos
-        NetworkObject netObj = nuevoLaser.GetComponentInParent<NetworkObject>() ?? nuevoLaser.GetComponentInChildren<NetworkObject>();
-        if (netObj != null)
-        {
-            netObj.Spawn();
-        }
     }
 }
+
+//    [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Everyone)]
+//    private void DispararServerRpc(ulong idTirador, Vector3 posicion, Quaternion rotacion)
+//    {
+//        // El servidor crea el láser...
+//        GameObject nuevoLaser = Instantiate(prefabLaser, posicion, rotacion);
+
+//        // Buscamos el script de forma segura en la raíz o en los hijos
+//        LaserBolt scriptLaser = nuevoLaser.GetComponentInChildren<LaserBolt>();
+//        if (scriptLaser != null)
+//        {
+//            scriptLaser.idDueño.Value = idTirador;
+//        }
+
+//        // Buscamos el NetworkObject en la raíz o en los hijos y lo spawneamos
+//        NetworkObject netObj = nuevoLaser.GetComponentInParent<NetworkObject>() ?? nuevoLaser.GetComponentInChildren<NetworkObject>();
+//        if (netObj != null)
+//        {
+//            netObj.Spawn();
+//        }
+//    }
+//}'
