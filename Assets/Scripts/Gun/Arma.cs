@@ -60,14 +60,18 @@ public class Arma : NetworkBehaviour
         // El servidor crea el láser...
         GameObject nuevoLaser = Instantiate(prefabLaser, posicion, rotacion);
 
-        // Le inyectamos la ID del jugador que disparó ANTES de spawnearlo en red
-        LaserBolt scriptLaser = nuevoLaser.GetComponent<LaserBolt>();
+        // Buscamos el script de forma segura en la raíz o en los hijos
+        LaserBolt scriptLaser = nuevoLaser.GetComponentInChildren<LaserBolt>();
         if (scriptLaser != null)
         {
             scriptLaser.idDueño.Value = idTirador;
         }
 
-        // Lo hacemos visible para todos
-        nuevoLaser.GetComponent<NetworkObject>().Spawn();
+        // Buscamos el NetworkObject en la raíz o en los hijos y lo spawneamos
+        NetworkObject netObj = nuevoLaser.GetComponentInParent<NetworkObject>() ?? nuevoLaser.GetComponentInChildren<NetworkObject>();
+        if (netObj != null)
+        {
+            netObj.Spawn();
+        }
     }
 }

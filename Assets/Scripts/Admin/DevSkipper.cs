@@ -26,7 +26,7 @@ public class DevSkipper : MonoBehaviour
             {
                 // Asegúrate de haber creado este método en GameplayManager
                 // O usa: GameplayManager.Instance.tiempoDeJuego = 0;
-                GameplayManager.Instance.Debug_ForzarFinal();
+                //GameplayManager.Instance.Debug_ForzarFinal();
             }
 
         }

@@ -7,7 +7,6 @@ public class GameplayManager : NetworkBehaviour
 {
     public static GameplayManager Instance;
 
-
     [Header("--- Configuración de la Partida ---")]
     public float tiempoDeJuego = 30f;
     public NetworkVariable<float> tiempoRestanteNet = new NetworkVariable<float>(30f, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
@@ -16,20 +15,19 @@ public class GameplayManager : NetworkBehaviour
     [Header("--- Entorno ---")]
     public GameObject entornoJuego;
 
-    [Header("--- Spawners (Host-Only) ---")]
+    [Header("--- Spawners de Asteroides (Host-Only) ---")]
     public GameObject[] listaDeObjetivos;
     public Transform contenedorSpawners;
     public float intervaloSpawn = 1.5f;
-    private List<Transform> puntosDeSpawn = new List<Transform>();
+    private List<Transform> puntosDeSpawnAsteroides = new List<Transform>();
+
+    [Header("--- Puntos de Spawn JUGADORES ---")]
+    public Transform contenedorSpawnJugadores;
+    private List<Transform> puntosDeSpawnJugadores = new List<Transform>();
 
     [Header("--- Arma de los Jugadores ---")]
     public GameObject prefabArma;
-
-
-    // ¡NUEVO! Lista interna del servidor para recordar qué armas ha creado
     private List<NetworkObject> armasSpawneadas = new List<NetworkObject>();
-
-    // Lista de pantallas de armas registradas para actualizarles el reloj localmente
     private List<WeaponDisplay> pantallasDeArmas = new List<WeaponDisplay>();
 
     void Awake()
@@ -37,9 +35,16 @@ public class GameplayManager : NetworkBehaviour
         if (Instance == null) Instance = this;
         else Destroy(gameObject);
 
+        // Llenamos los puntos de spawn de asteroides
         if (contenedorSpawners != null)
         {
-            foreach (Transform child in contenedorSpawners) puntosDeSpawn.Add(child);
+            foreach (Transform child in contenedorSpawners) puntosDeSpawnAsteroides.Add(child);
+        }
+
+        // Llenamos los puntos de spawn de jugadores
+        if (contenedorSpawnJugadores != null)
+        {
+            foreach (Transform child in contenedorSpawnJugadores) puntosDeSpawnJugadores.Add(child);
         }
     }
 
@@ -52,9 +57,7 @@ public class GameplayManager : NetworkBehaviour
         }
     }
 
-
-
-    // --- INICIO DEL JUEGO (Llamado solo cuando se cumple la condición de jugar) ---
+    // --- INICIO DEL JUEGO (Bloque 4) ---
     public void IniciarPartida()
     {
         if (!IsServer) return;
@@ -64,69 +67,75 @@ public class GameplayManager : NetworkBehaviour
 
         if (entornoJuego) entornoJuego.SetActive(true);
 
-        // --- NUEVO: Spawn de jugadores en puntos concretos ---
-        SpawnearJugadoresEnPuntos();
+        Debug.Log("[SERVER] Bloque 4 Iniciado. Teletransportando jugadores locales y creando armas...");
 
-        // --- NUEVO: Spawn de armas ---
-        SpawnArmasParaTodos();
+        // 1. Enviamos la orden a todos los clientes para que muevan su XR_Origin_LOCAL físico
+        MoverJugadoresAPuntosClientRpc();
 
+        // 2. El servidor crea las armas frente a los puntos de spawn correspondientes
+        SpawnArmasEnPuntos();
+
+        // 3. Arrancamos los asteroides
         StartCoroutine(RutinaSpawn());
+
+        // Añadir al final de la función IniciarPartida() en GameplayManager.cs
+        var todosLosAvatares = FindObjectsByType<PlayerAvatarSync>(FindObjectsSortMode.None);
+        foreach (var avatar in todosLosAvatares)
+        {
+            if (avatar != null) avatar.ActivarVisibilidadEnPartida();
+        }
     }
 
-    private void SpawnearJugadoresEnPuntos()
+    [ClientRpc]
+    private void MoverJugadoresAPuntosClientRpc()
     {
-        if (!IsServer) return;
+        // Cada jugador busca su propio XR_Origin_LOCAL en su escena
+        GameObject miXR = GameObject.Find("XR_Origin_LOCAL");
+        if (miXR != null)
+        {
+            // Conseguimos el ID de este cliente para saber qué número de spawn le toca
+            int miID = (int)NetworkManager.Singleton.LocalClientId;
 
-        // Recorremos a todos los jugadores conectados
+            // Evitamos errores de índice si hay más jugadores que puntos de spawn
+            if (miID < puntosDeSpawnJugadores.Count)
+            {
+                miXR.transform.position = puntosDeSpawnJugadores[miID].position;
+                miXR.transform.rotation = puntosDeSpawnJugadores[miID].rotation;
+                Debug.Log($"[CLIENTE] Teletransportado con éxito al punto de spawn: {miID}");
+            }
+        }
+    }
+
+    private void SpawnArmasEnPuntos()
+    {
+        if (prefabArma == null) return;
+        armasSpawneadas.Clear();
+
         int i = 0;
         foreach (var client in NetworkManager.Singleton.ConnectedClientsList)
         {
-            // 1. Instanciamos el prefab original del jugador
-            // Asegúrate de que el Prefab del Jugador esté en tu carpeta de Assets y no en la escena
-            GameObject playerInstance = Instantiate(NetworkManager.Singleton.NetworkConfig.PlayerPrefab);
-
-            // 2. Le asignamos la posición del punto de spawn
-            // Si tienes 4 puntos, nos aseguramos de no salirnos del índice
-            if (i < puntosDeSpawn.Count)
+            if (i < puntosDeSpawnJugadores.Count)
             {
-                playerInstance.transform.position = puntosDeSpawn[i].position;
-                playerInstance.transform.rotation = puntosDeSpawn[i].rotation;
-            }
+                Transform puntoSpawn = puntosDeSpawnJugadores[i];
 
-            // 3. Lo registramos en la red como el objeto de ese jugador
-            playerInstance.GetComponent<NetworkObject>().SpawnAsPlayerObject(client.ClientId);
+                // Calculamos la posición del arma siempre de frente al punto de spawn del jugador
+                // (50cm hacia adelante del spawn y a 1.2m de altura del suelo)
+                Vector3 posicionArma = puntoSpawn.position + (puntoSpawn.forward * 0.5f) + (Vector3.up * 1.2f);
 
-            i++;
-        }
-    }
-    private void SpawnArmasParaTodos()
-    {
-        if (prefabArma == null) return;
-
-        // Limpiamos la lista por si acaso venimos de una partida anterior
-        armasSpawneadas.Clear();
-
-        foreach (var client in NetworkManager.Singleton.ConnectedClientsList)
-        {
-            if (client.PlayerObject != null)
-            {
-                Transform playerTransform = client.PlayerObject.transform;
-                Vector3 posicionArma = playerTransform.position + (playerTransform.forward * 0.5f) + (Vector3.up * 1.2f);
-
-                GameObject miArma = Instantiate(prefabArma, posicionArma, playerTransform.rotation);
+                // Instanciamos el arma en el servidor
+                GameObject miArma = Instantiate(prefabArma, posicionArma, puntoSpawn.rotation);
                 NetworkObject netObj = miArma.GetComponent<NetworkObject>();
 
                 if (netObj != null)
                 {
-                    // Le damos el arma al jugador
+                    // Le damos el arma al dueño de ese punto de spawn
                     netObj.SpawnWithOwnership(client.ClientId);
-                    // 🎯 LA GUARDAMOS EN LA MEMORIA DEL SERVIDOR
                     armasSpawneadas.Add(netObj);
                 }
             }
+            i++;
         }
     }
-
 
     void Update()
     {
@@ -161,9 +170,9 @@ public class GameplayManager : NetworkBehaviour
 
     void SpawnObjetivoEnRed()
     {
-        if (puntosDeSpawn.Count == 0 || listaDeObjetivos.Length == 0) return;
+        if (puntosDeSpawnAsteroides.Count == 0 || listaDeObjetivos.Length == 0) return;
 
-        Transform puntoAleatorio = puntosDeSpawn[Random.Range(0, puntosDeSpawn.Count)];
+        Transform puntoAleatorio = puntosDeSpawnAsteroides[Random.Range(0, puntosDeSpawnAsteroides.Count)];
         GameObject asteroideElegido = listaDeObjetivos[Random.Range(0, listaDeObjetivos.Length)];
 
         if (asteroideElegido != null)
@@ -174,7 +183,6 @@ public class GameplayManager : NetworkBehaviour
         }
     }
 
-    // --- TRANSICIÓN AL PANEL DE RESULTADOS (BLOQUE 5) ---
     void FinalizarPartida()
     {
         if (!IsServer) return;
@@ -182,41 +190,20 @@ public class GameplayManager : NetworkBehaviour
         juegoActivo = false;
         StopAllCoroutines();
 
-        Debug.Log("[SERVER] Tiempo agotado. Limpiando escena para el panel de resultados...");
-
-        // 💥 LIMPIEZA 1: Eliminar todas las armas de los jugadores de la red
+        // Limpieza de armas (Bloque 5)
         foreach (var armaNetObj in armasSpawneadas)
         {
-            if (armaNetObj != null && armaNetObj.IsSpawned)
-            {
-                armaNetObj.Despawn(); // Desaparece instantáneamente de todas las gafas
-            }
+            if (armaNetObj != null && armaNetObj.IsSpawned) armaNetObj.Despawn();
         }
-        armasSpawneadas.Clear(); // Vaciamos la lista para la siguiente ronda
+        armasSpawneadas.Clear();
 
-        // 💥 LIMPIEZA 2: Eliminar todos los asteroides sobrantes de la red
+        // Limpieza de asteroides
         var objetivos = FindObjectsByType<AsteroidTarget>(FindObjectsSortMode.None);
         foreach (var obj in objetivos)
         {
-            if (obj != null && obj.GetComponent<NetworkObject>().IsSpawned)
-            {
-                obj.GetComponent<NetworkObject>().Despawn();
-            }
+            if (obj != null && obj.GetComponent<NetworkObject>().IsSpawned) obj.GetComponent<NetworkObject>().Despawn();
         }
 
-        // 3. Avisamos al MainGameManager para que encienda el Panel de Puntuaciones final (Bloque 5)
-        if (MainGameManager.Instance != null)
-        {
-            MainGameManager.Instance.FinalizarExperienciaCompleta();
-        }
-    }
-
-    public void Debug_ForzarFinal()
-    {
-        if (IsServer && juegoActivo)
-        {
-            tiempoRestanteNet.Value = 0;
-            FinalizarPartida();
-        }
+        if (MainGameManager.Instance != null) MainGameManager.Instance.FinalizarExperienciaCompleta();
     }
 }

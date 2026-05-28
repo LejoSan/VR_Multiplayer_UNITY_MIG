@@ -11,24 +11,23 @@ public class LaserBolt : NetworkBehaviour
     [Header("Efectos Visuales (Color)")]
     public Renderer renderLaser; // La malla 3D de tu láser
 
-    // ¡NUEVO! Seguro anti-doble impacto
     private bool yaDestruido = false;
-
 
     // Variable de red que guarda quién disparó este láser
     public NetworkVariable<ulong> idDueño = new NetworkVariable<ulong>(999, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
 
-    void Start()
-    {
-        if (IsServer) Invoke("DestruirLaser", tiempoDeVida);
-    }
-
     public override void OnNetworkSpawn()
     {
+        // ¡SITIO SEGURO! Si somos el servidor, programamos su destrucción aquí
+        if (IsServer)
+        {
+            Invoke("DestruirLaser", tiempoDeVida);
+        }
+
         // 1. Intentamos pintar el láser nada más nacer
         AplicarColorDelTirador(idDueño.Value);
 
-        // 2. Nos suscribimos por si el dato del servidor llega con unos milisegundos de retraso (prevención de lag)
+        // 2. Nos suscribimos por si el dato del servidor llega con unos milisegundos de retraso
         idDueño.OnValueChanged += (viejoID, nuevoID) => AplicarColorDelTirador(nuevoID);
     }
 
@@ -81,24 +80,45 @@ public class LaserBolt : NetworkBehaviour
         DestruirLaser();
     }
 
+    //void DestruirLaser()
+    //{
+    //    // Si ya chocamos hace un milisegundo, abortamos
+    //    if (yaDestruido) return;
+
+    //    // Buscamos el componente de red de forma segura
+    //    NetworkObject miNetObj = GetComponent<NetworkObject>();
+
+    //    // Si somos el servidor, el objeto tiene componente de red, y sigue vivo en la red
+    //    if (IsServer && miNetObj != null && miNetObj.IsSpawned)
+    //    {
+    //        yaDestruido = true; // Activamos el seguro
+    //        miNetObj.Despawn(); // Lo destruimos para todos
+    //    }
+    //    else if (miNetObj == null)
+    //    {
+    //        // Solo por si acaso olvidaste ponerle el componente en el inspector
+    //        Debug.LogWarning("¡Aviso! Al láser le falta el componente NetworkObject.");
+    //        Destroy(gameObject);
+    //    }
+    //}
+
     void DestruirLaser()
     {
-        // Si ya chocamos hace un milisegundo, abortamos
         if (yaDestruido) return;
 
-        // Buscamos el componente de red de forma segura
-        NetworkObject miNetObj = GetComponent<NetworkObject>();
+        // 🌟 CORREGIDO: Buscamos en el objeto actual, en el padre, o en la raíz absoluta.
+        // Esto garantiza encontrar el NetworkObject sin importar dónde esté el script guardado.
+        NetworkObject miNetObj = GetComponent<NetworkObject>() ?? GetComponentInParent<NetworkObject>();
 
-        // Si somos el servidor, el objeto tiene componente de red, y sigue vivo en la red
         if (IsServer && miNetObj != null && miNetObj.IsSpawned)
         {
-            yaDestruido = true; // Activamos el seguro
-            miNetObj.Despawn(); // Lo destruimos para todos
+            yaDestruido = true;
+            miNetObj.Despawn(); // Se destruye oficialmente en toda la red de forma sincronizada
         }
         else if (miNetObj == null)
         {
-            // Solo por si acaso olvidaste ponerle el componente en el inspector
-            Debug.LogWarning("¡Aviso! Al láser le falta el componente NetworkObject.");
+            // Si entra aquí, es que físicamente el prefab no tiene el componente en ningún nivel
+            Debug.LogWarning("¡Aviso Crítico! Al prefab del láser le falta el componente NetworkObject en todos sus niveles.");
             Destroy(gameObject);
         }
     }

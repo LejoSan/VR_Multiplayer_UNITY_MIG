@@ -7656,9 +7656,6 @@ GameObject:
   - component: {fileID: 152919590125855871}
   - component: {fileID: 8602914912014296442}
   - component: {fileID: 4278131243518850875}
-  - component: {fileID: -6641414457278111107}
-  - component: {fileID: -3897028654575935051}
-  - component: {fileID: 4472803030970571543}
   m_Layer: 2
   m_Name: XR_Lobby
   m_TagString: Untagged
@@ -7795,83 +7792,6 @@ MonoBehaviour:
   m_AimAssistRequiredSpeed: 0.25
   m_AimAssistPercent: 0.8
   m_AimAssistMaxSpeedPercent: 10
---- !u!114 &-6641414457278111107
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 7594124299029571446}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Unity.Netcode.Runtime::Unity.Netcode.NetworkObject
-  GlobalObjectIdHash: 2141880830
-  InScenePlacedSourceGlobalObjectIdHash: 2497447538
-  DeferredDespawnTick: 0
-  Ownership: 1
-  AlwaysReplicateAsRoot: 0
-  SynchronizeTransform: 1
-  ActiveSceneSynchronization: 0
-  SceneMigrationSynchronization: 0
-  SpawnWithObservers: 1
-  DontDestroyWithOwner: 0
-  AutoObjectParentSync: 1
-  SyncOwnerTransformWhenParented: 1
-  AllowOwnerToParent: 0
---- !u!114 &-3897028654575935051
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 7594124299029571446}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 39a6bc2e11ebb2a4095fe43bb6c69cb3, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::PlayerNetworkState
-  ShowTopMostFoldoutHeaderGroup: 1
-  puntuacion:
-    m_InternalValue: 0
-  colorJugadorNet:
-    m_InternalValue: {x: 1, y: 1, z: 1, w: 1}
-  multiplicadorPuntos:
-    m_InternalValue: 1
-  puedeDisparar:
-    m_InternalValue: 1
-  meshManoIzquierda: {fileID: 0}
-  meshManoDerecha: {fileID: 0}
---- !u!114 &4472803030970571543
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 7594124299029571446}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 0cb3e3b8f18120c41be5f94038e9f184, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::PlayerNetworkSetup
-  ShowTopMostFoldoutHeaderGroup: 1
-  camaraVR: {fileID: 3437775414435116228}
-  audioListener: {fileID: 6006810760860225559}
-  controlesYRayos:
-  - {fileID: 3555565567090552329}
-  - {fileID: 6942485467987097652}
-  - {fileID: 2129877551340818531}
-  - {fileID: 649067584215912142}
-  - {fileID: 2581529809426773986}
-  - {fileID: 5802968507004310859}
-  - {fileID: 7175807557347303037}
-  - {fileID: 860886072918356235}
-  - {fileID: 5938899430875160716}
-  - {fileID: 4296119095557524474}
-  - {fileID: 8181121256881614332}
-  - {fileID: 1564684629565245931}
-  - {fileID: 4156197740191739908}
 --- !u!1 &8181121256881614332
 GameObject:
   m_ObjectHideFlags: 0
