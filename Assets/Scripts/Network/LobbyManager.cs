@@ -1,6 +1,7 @@
 ﻿using UnityEngine;
 using UnityEngine.UI;
 using Unity.Netcode;
+using Unity.Netcode.Transports.UTP;
 using TMPro;
 
 public class LobbyManager : NetworkBehaviour
@@ -71,6 +72,21 @@ public class LobbyManager : NetworkBehaviour
 
     public void BTN_IniciarClienteVR()
     {
+        // 1. Accedemos de forma segura al componente de transporte de red
+        if (NetworkManager.Singleton != null)
+        {
+            UnityTransport transport = NetworkManager.Singleton.GetComponent<UnityTransport>();
+            if (transport != null)
+            {
+                // PON AQUÍ LA IP DE TU ORDENADOR (La que te dio el comando ipconfig)
+                transport.ConnectionData.Address = "192.168.20.167";
+
+                // Asegúrate de que el puerto coincide con el que guardamos en el NetworkManager (7778 o 7777)
+                transport.ConnectionData.Port = 7778;
+            }
+        }
+
+        // 2. Tu flujo original intacto
         EnviarIdentificacionDispositivo("VR");
         NetworkManager.Singleton.StartClient();
         IrAPanelColores();

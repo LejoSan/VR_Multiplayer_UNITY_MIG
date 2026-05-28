@@ -13,13 +13,11 @@ public class MainGameManager : NetworkBehaviour
     public NetworkVariable<EstadoJuego> estadoActual = new NetworkVariable<EstadoJuego>(
         EstadoJuego.EsperandoLobby, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
 
-    // ¡NUEVO! Contador de jugadores que le han dado al botón "Jugar" en las instrucciones
     public NetworkVariable<int> jugadoresListos = new NetworkVariable<int>(0, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
 
     [Header("Bloques de Escena")]
     public GameObject bloqueInicio;
     public GameObject bloqueRobot;
-    public GameObject bloqueUI_Decision;
     public GameObject bloqueInstrucciones;
     public GameObject bloqueGameplay;
     public GameObject bloqueVictoria;
@@ -32,12 +30,13 @@ public class MainGameManager : NetworkBehaviour
     public AudioClip audioInstrucciones;
     public AudioClip audioVictoria;
 
-    [Header("UI Jugador")]
-    public GameObject botonJugarIndividual; // El botón que pulsará cada jugador en la fase de instrucciones
+    [Header("UI Jugador / Ready Check")]
+    public GameObject botonJugarIndividual;
+    public TextMeshProUGUI textoContadorListos; // El texto que dirá "0/2", "1/2", etc.
 
     [Header("UI Final / Podio")]
-    public TextMeshProUGUI textoResultados; // El texto donde saldrá la lista de puntos
-    public GameObject botonReiniciarHost;   // El botón de Volver a Jugar
+    public TextMeshProUGUI textoResultados;
+    public GameObject botonReiniciarHost;
 
     public float tiempoEntrada = 5.0f;
 
@@ -47,11 +46,18 @@ public class MainGameManager : NetworkBehaviour
         else Destroy(gameObject);
     }
 
+    // 🌟 REESTRUCTURADO: Los clientes y el host se preparan aquí para escuchar la red
     public override void OnNetworkSpawn()
     {
         estadoActual.OnValueChanged += AlCambiarEstadoGlobal;
+        jugadoresListos.OnValueChanged += (viejo, nuevo) => ActualizarTextoListosVisual(nuevo);
 
-        if (estadoActual.Value == EstadoJuego.FaseGameplay)
+        // SEGURO DE RED: Si el cliente entra tarde y el juego ya avanzó de fase, se auto-sincroniza
+        if (estadoActual.Value == EstadoJuego.FaseInstrucciones)
+        {
+            EjecutarFaseInstruccionesLocal();
+        }
+        else if (estadoActual.Value == EstadoJuego.FaseGameplay)
         {
             SaltarDirectoAGameplayLocal();
         }
@@ -73,7 +79,7 @@ public class MainGameManager : NetworkBehaviour
         }
     }
 
-    // --- FASE 1: INTRO ---
+    // --- FASE 1: INTRO (Flujo directo automatizado) ---
     private void EjecutarFaseIntroLocal()
     {
         if (bloqueInicio) bloqueInicio.SetActive(false);
@@ -83,34 +89,60 @@ public class MainGameManager : NetworkBehaviour
 
     IEnumerator SecuenciaIntroCorrutina()
     {
+        // 1. Animación de entrada del Robot
         if (robotAnimator) robotAnimator.SetTrigger("Trig_Entrar");
         yield return new WaitForSeconds(tiempoEntrada);
 
+        // 2. Audio de Introducción
         if (audioSource && audioIntroduccion)
         {
             audioSource.clip = audioIntroduccion;
             audioSource.Play();
             if (robotAnimator) robotAnimator.SetBool("EsHablando", true);
-            yield return new WaitForEndOfFrame();
-            if (robotAnimator) robotAnimator.SetBool("EsHablando", false);
             yield return new WaitForSeconds(audioIntroduccion.length);
+            if (robotAnimator) robotAnimator.SetBool("EsHablando", false);
         }
 
-        if (IsServer && bloqueUI_Decision) bloqueUI_Decision.SetActive(true);
+        // 🌟 EL GRAN CAMBIO AUTOMÁTICO: Cuando termina la intro, el servidor cambia el estado global 
+        // e invoca un RPC directo para despertar las instrucciones en todas las gafas a la vez.
+        if (IsServer)
+        {
+            estadoActual.Value = EstadoJuego.FaseInstrucciones;
+            ForzarFaseInstruccionesEnClientesClientRpc();
+        }
     }
 
-    public void BTN_Host_ContinuarAInstrucciones()
+    [ClientRpc]
+    private void ForzarFaseInstruccionesEnClientesClientRpc()
     {
-        if (IsServer) estadoActual.Value = EstadoJuego.FaseInstrucciones;
+        // Despierta localmente la fase en los clientes evitando la trampa del retraso por tiempo
+        EjecutarFaseInstruccionesLocal();
     }
 
     // --- FASE 2: INSTRUCCIONES Y READY CHECK ---
     private void EjecutarFaseInstruccionesLocal()
     {
-        if (bloqueUI_Decision) bloqueUI_Decision.SetActive(false);
+        // Encendemos el bloque de instrucciones para todos
         if (bloqueInstrucciones) bloqueInstrucciones.SetActive(true);
-        if (botonJugarIndividual) botonJugarIndividual.SetActive(true); // Se le muestra a cada jugador
 
+        // Forzamos que el botón "¡JUGUEMOS!" sea visible y cliqueable por el láser de todos los visores
+        if (botonJugarIndividual != null)
+        {
+            botonJugarIndividual.SetActive(true);
+            UnityEngine.UI.Button btnComp = botonJugarIndividual.GetComponent<UnityEngine.UI.Button>();
+            if (btnComp != null) btnComp.interactable = true;
+        }
+
+        // Activamos e inicializamos el texto en pantalla (Ej: 0 / 2)
+        if (textoContadorListos != null)
+        {
+            textoContadorListos.gameObject.SetActive(true);
+        }
+
+        // Damos un margen de 200ms para procesar los avatares en red y pintar el número correcto
+        StartCoroutine(RefrescarTextoInstruccionesConRetraso());
+
+        // Audio de las instrucciones
         if (audioInstrucciones && audioSource)
         {
             audioSource.clip = audioInstrucciones;
@@ -118,10 +150,33 @@ public class MainGameManager : NetworkBehaviour
         }
     }
 
-    // ¡NUEVO! Cada jugador pulsa este botón con su láser VR
+    private IEnumerator RefrescarTextoInstruccionesConRetraso()
+    {
+        yield return new WaitForSeconds(0.2f);
+        ActualizarTextoListosVisual(jugadoresListos.Value);
+    }
+
+    private void ActualizarTextoListosVisual(int listos)
+    {
+        if (textoContadorListos != null && NetworkManager.Singleton != null)
+        {
+            int totalJugadoresVR = 0;
+            foreach (var client in NetworkManager.Singleton.ConnectedClientsList)
+            {
+                if (client.PlayerObject != null) totalJugadoresVR++;
+            }
+
+            // Seguro por si el cliente lee la red antes de auto-registrarse
+            if (totalJugadoresVR == 0) totalJugadoresVR = NetworkManager.Singleton.ConnectedClientsIds.Count;
+
+            textoContadorListos.text = $"Jugadores listos: {listos} / {totalJugadoresVR}";
+            Debug.Log($"[READY CHECK] UI: {listos} de {totalJugadoresVR} jugadores VR.");
+        }
+    }
+
     public void BTN_JugadorListo()
     {
-        if (botonJugarIndividual) botonJugarIndividual.SetActive(false); // Lo ocultamos para que no le dé 2 veces
+        if (botonJugarIndividual != null) botonJugarIndividual.SetActive(false);
         AumentarContadorListosServerRpc();
     }
 
@@ -130,15 +185,13 @@ public class MainGameManager : NetworkBehaviour
     {
         jugadoresListos.Value++;
 
-        // Contamos cuántos jugadores VR reales hay (ignorando al admin móvil si lo hubiera)
-        int jugadoresVR = 0;
+        int totalJugadoresVR = 0;
         foreach (var client in NetworkManager.Singleton.ConnectedClientsList)
         {
-            if (client.PlayerObject != null) jugadoresVR++;
+            if (client.PlayerObject != null) totalJugadoresVR++;
         }
 
-        // Si todos los VR le han dado al botón, ¡arrancamos!
-        if (jugadoresListos.Value >= jugadoresVR)
+        if (jugadoresListos.Value >= totalJugadoresVR)
         {
             estadoActual.Value = EstadoJuego.FaseGameplay;
         }
@@ -147,6 +200,7 @@ public class MainGameManager : NetworkBehaviour
     // --- FASE 3: GAMEPLAY ---
     private void EjecutarTransicionAVRLocal()
     {
+        if (textoContadorListos != null) textoContadorListos.gameObject.SetActive(false);
         if (bloqueInstrucciones) bloqueInstrucciones.SetActive(false);
         StartCoroutine(SecuenciaTransicionAVR());
     }
@@ -183,10 +237,8 @@ public class MainGameManager : NetworkBehaviour
         if (bloqueGameplay) bloqueGameplay.SetActive(false);
         if (bloqueVictoria) bloqueVictoria.SetActive(true);
 
-        // 1. Generar la lista de puntuaciones
         GenerarPodioDeJugadores();
 
-        // 2. Control exclusivo del botón para el Host
         if (botonReiniciarHost != null)
         {
             botonReiniciarHost.SetActive(IsServer);
@@ -199,7 +251,6 @@ public class MainGameManager : NetworkBehaviour
 
         string podioText = "<size=120%>PUNTUACIONES FINALES</size>\n\n";
 
-        // Recorremos a todos los jugadores que están conectados en la partida
         foreach (var cliente in NetworkManager.Singleton.ConnectedClientsList)
         {
             if (cliente.PlayerObject != null)
@@ -207,11 +258,8 @@ public class MainGameManager : NetworkBehaviour
                 PlayerNetworkState estado = cliente.PlayerObject.GetComponent<PlayerNetworkState>();
                 if (estado != null)
                 {
-                    // Convertimos su Vector4 de color a un color real
                     Color colorJugador = new Color(estado.colorJugadorNet.Value.x, estado.colorJugadorNet.Value.y, estado.colorJugadorNet.Value.z);
                     string hexColor = ColorUtility.ToHtmlStringRGB(colorJugador);
-
-                    // Añadimos al texto: "■ Jugador X: 150 pts" pintado de su color
                     podioText += $"<color=#{hexColor}>■</color> Jugador {(cliente.ClientId == 0 ? "Líder" : cliente.ClientId.ToString())}: <b>{estado.puntuacion.Value} pts</b>\n";
                 }
             }
@@ -234,35 +282,23 @@ public class MainGameManager : NetworkBehaviour
         if (camaraLocal != null) camaraLocal.clearFlags = CameraClearFlags.Skybox;
     }
 
-    // --- ZONA DE DESARROLLADOR (DEBUG) ---
-
     public void Debug_SaltarAlGameplay()
     {
-        // 1. Cancelar cualquier Invoke pendiente (para que no salte la intro tarde)
         CancelInvoke();
         StopAllCoroutines();
 
-        // 2. Callar al Robot y ocultarlo
         if (audioSource != null) audioSource.Stop();
         if (bloqueRobot != null) bloqueRobot.SetActive(false);
         if (bloqueInicio != null) bloqueInicio.SetActive(false);
         if (bloqueInstrucciones != null) bloqueInstrucciones.SetActive(false);
         if (bloqueVictoria != null) bloqueVictoria.SetActive(false);
 
-        // 3. Activar el Entorno VR (Si lo tienes separado)
-        if (entornoVR != null) entornoVR.SetActive(true);
+        if (entornoVR) entornoVR.SetActive(true);
+        if (bloqueGameplay) bloqueGameplay.SetActive(true);
 
-        // 4. Activar bloque Gameplay
-        if (bloqueGameplay != null) bloqueGameplay.SetActive(true);
-
-        // 5. ¡ARRANCAR EL JUEGO YA!
         if (GameplayManager.Instance != null)
         {
             GameplayManager.Instance.IniciarPartida();
-        }
-        else
-        {
-            Debug.LogError("No encuentro el GameplayManager para iniciar.");
         }
     }
 }
