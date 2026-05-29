@@ -28,6 +28,9 @@ public class LobbyManager : NetworkBehaviour
     public TextMeshProUGUI textoEstadoEspera;
     public TextMeshProUGUI textoListaJugadores;
 
+    [Header("--- NUMERO DE LA IP / ORDENADOR - VR HEADSET ---")]
+    public string Ipnumero = "";
+
     // Variables de red para sincronizar los colores (999 = Color Libre)
     private NetworkVariable<ulong> dueñoRojo = new NetworkVariable<ulong>(999, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
     private NetworkVariable<ulong> dueñoAzul = new NetworkVariable<ulong>(999, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
@@ -79,7 +82,7 @@ public class LobbyManager : NetworkBehaviour
             if (transport != null)
             {
                 // PON AQUÍ LA IP DE TU ORDENADOR (La que te dio el comando ipconfig)
-                transport.ConnectionData.Address = "192.168.20.167";
+                transport.ConnectionData.Address = Ipnumero;
 
                 // Asegúrate de que el puerto coincide con el que guardamos en el NetworkManager (7778 o 7777)
                 transport.ConnectionData.Port = 7778;

@@ -109,31 +109,39 @@ public class GameplayManager : NetworkBehaviour
     private void SpawnArmasEnPuntos()
     {
         if (prefabArma == null) return;
+
+        // Limpiamos la lista previa de armas para evitar fugas de memoria
         armasSpawneadas.Clear();
 
-        int i = 0;
+        // Recorremos la lista oficial de clientes conectados en la sesión
         foreach (var client in NetworkManager.Singleton.ConnectedClientsList)
         {
-            if (i < puntosDeSpawnJugadores.Count)
-            {
-                Transform puntoSpawn = puntosDeSpawnJugadores[i];
+            // El ClientId (0, 1, 2, 3) nos dice exactamente qué número de jugador es
+            int idJugador = (int)client.ClientId;
 
-                // Calculamos la posición del arma siempre de frente al punto de spawn del jugador
-                // (50cm hacia adelante del spawn y a 1.2m de altura del suelo)
+            // Aseguramos que el jugador tenga un punto de spawn asignado en el mapa
+            if (idJugador < puntosDeSpawnJugadores.Count)
+            {
+                // Sacamos el punto de spawn exacto que le pertenece a ESTE ID de red
+                Transform puntoSpawn = puntosDeSpawnJugadores[idJugador];
+
+                // Calculamos el espacio modular: 50cm al frente de sus ojos y a 1.2m de altura del suelo
                 Vector3 posicionArma = puntoSpawn.position + (puntoSpawn.forward * 0.5f) + (Vector3.up * 1.2f);
 
-                // Instanciamos el arma en el servidor
+                // El servidor crea la instancia física del arma
                 GameObject miArma = Instantiate(prefabArma, posicionArma, puntoSpawn.rotation);
                 NetworkObject netObj = miArma.GetComponent<NetworkObject>();
 
                 if (netObj != null)
                 {
-                    // Le damos el arma al dueño de ese punto de spawn
+                    // 🌟 LA REGLA DE ORO: Spawneamos el arma asignándole el Ownership (Dueño) 
+                    // exclusivo al idJugador correspondiente. ¡Un arma por persona, sin duplicados!
                     netObj.SpawnWithOwnership(client.ClientId);
                     armasSpawneadas.Add(netObj);
+
+                    Debug.Log($"[SERVER] Arma spawneada y asignada con éxito al Jugador ID: {idJugador} de forma exclusiva.");
                 }
             }
-            i++;
         }
     }
 
