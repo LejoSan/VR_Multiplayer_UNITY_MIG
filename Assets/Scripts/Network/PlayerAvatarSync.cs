@@ -87,34 +87,16 @@ public class PlayerAvatarSync : NetworkBehaviour
     {
         if (IsOwner)
         {
-            // 1. MOVIMIENTO DE LA CABEZA:
+            // 🌟 EL ENFOQUE DE VALEM TUTORIALS:
+            // El objeto raíz copia exactamente la posición y rotación global de tu visor VR.
+            // Toda la inclinación, giro y traslación se hereda limpiamente hacia abajo.
             if (localHead)
             {
-                // El padre de la cabeza copia la POSICIÓN exacta (para que flote en tus ojos)
-                if (avatarHeadParent) avatarHeadParent.position = localHead.position;
-
-                // 🌟 LA CLAVE DEL GIRO: La malla física de la cabeza copia la ROTACIÓN exacta del visor.
-                // Esto permite que el personaje mire arriba, abajo y a los lados de forma fluida.
-                if (mallaCabezaCompleta) mallaCabezaCompleta.transform.rotation = localHead.rotation;
+                transform.position = localHead.position;
+                transform.rotation = localHead.rotation;
             }
 
-            // 2. MOVIMIENTO DEL TORSO (Estático flotante):
-            if (localHead && avatarTorsoParent)
-            {
-                // El torso sigue la posición de la cabeza, pero le aplicamos un desfase hacia abajo (ej. 40cm menos)
-                // para que se quede a la altura del pecho de forma natural.
-                avatarTorsoParent.position = localHead.position + (Vector3.down * 0.4f);
-
-                // Mantenemos el torso estático en rotación (o puedes hacer que mire al frente, pero sin inclinarse)
-                Vector3 forwardTorso = localHead.forward;
-                forwardTorso.y = 0; // Cancelamos el cabeceo vertical (mirar arriba/abajo no deforma el torso)
-                if (forwardTorso.sqrMagnitude > 0.1f)
-                {
-                    avatarTorsoParent.rotation = Quaternion.LookRotation(forwardTorso);
-                }
-            }
-
-            // 3. MOVIMIENTO DE LAS MANOS VR:
+            // Las manos copian de forma local e independiente sus controladores físicos
             if (localLeftHand && avatarLeftHand)
             {
                 avatarLeftHand.position = localLeftHand.position;
