@@ -8138,6 +8138,10 @@ PrefabInstance:
       propertyPath: m_Name
       value: PlayerAvatar_Network
       objectReference: {fileID: 0}
+    - target: {fileID: 3200560117185692230, guid: fbd90720de38ff24eb21ecde78637e12, type: 3}
+      propertyPath: m_IsActive
+      value: 1
+      objectReference: {fileID: 0}
     - target: {fileID: 4740631616655340692, guid: fbd90720de38ff24eb21ecde78637e12, type: 3}
       propertyPath: m_LocalPosition.x
       value: 0
