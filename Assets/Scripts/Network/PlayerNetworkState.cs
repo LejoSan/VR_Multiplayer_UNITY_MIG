@@ -1,10 +1,10 @@
-using UnityEngine;
+ï»¿using UnityEngine;
 using Unity.Netcode;
 
 public class PlayerNetworkState : NetworkBehaviour
 {
     [Header("--- Datos Sincronizados de Red ---")]
-    // La puntuación individual de este jugador
+    // La puntuaciÃ³n individual de este jugador
     public NetworkVariable<int> puntuacion = new NetworkVariable<int>(0, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
 
     // El color asignado al jugador (enviado como Vector4 porque Color no es nativo de NetworkVariable)
@@ -20,20 +20,20 @@ public class PlayerNetworkState : NetworkBehaviour
 
     public override void OnNetworkSpawn()
     {
-        // Si soy el dueño de este avatar VR, le pido al servidor que me asigne mi color del lobby
+        // ---------------- TU LÃ“GICA ORIGINAL DE COLOR ----------------
         if (IsOwner)
         {
             EstablecerColorInicialServerRpc(NetworkManager.Singleton.LocalClientId);
         }
 
-        // Nos suscribimos al cambio de color para que, cuando el servidor lo asigne, se pinte en las manos de todos
         colorJugadorNet.OnValueChanged += (oldVal, newVal) => AplicarColorMallas(newVal);
-
-        // Aplicar el color actual por si entramos tarde (Late-join)
         AplicarColorMallas(colorJugadorNet.Value);
+
+        // ðŸŒŸ NOTA: La corrutina vieja de buscar el arma ha sido eliminada de aquÃ­ 
+        // porque el WeaponDisplay ahora se auto-vincula solo en su propio nacimiento.
     }
 
-    // El cliente le pide al servidor: "Oye, búscame en el LobbyManager y mira qué color elegí"
+    // El cliente le pide al servidor: "Oye, bÃºscame en el LobbyManager y mira quÃ© color elegÃ­"
     [ServerRpc]
     private void EstablecerColorInicialServerRpc(ulong idCliente)
     {
@@ -49,14 +49,13 @@ public class PlayerNetworkState : NetworkBehaviour
     {
         Color colorFinal = new Color(vectorColor.x, vectorColor.y, vectorColor.z, vectorColor.w);
 
-        // Pintamos el material de las manos virtuales del color seleccionado
         if (meshManoIzquierda != null) meshManoIzquierda.material.color = colorFinal;
         if (meshManoDerecha != null) meshManoDerecha.material.color = colorFinal;
     }
 
-    // --- MÉTODOS PÚBLICOS PARA EL GAMEPLAY ---
+    // --- MÃ‰TODOS PÃšBLICOS PARA EL GAMEPLAY ---
 
-    // Función autoritaria para sumar puntos (Saber si aplica x2)
+    // FunciÃ³n autoritaria para sumar puntos (Saber si aplica x2)
     public void ModificarPuntuacionServer(int cantidadBase)
     {
         if (!IsServer) return;

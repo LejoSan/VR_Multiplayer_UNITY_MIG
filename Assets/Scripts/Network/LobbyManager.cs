@@ -30,6 +30,8 @@ public class LobbyManager : NetworkBehaviour
 
     [Header("--- NUMERO DE LA IP / ORDENADOR - VR HEADSET ---")]
     public string Ipnumero = "";
+    public ushort Puerto;
+
 
     // Variables de red para sincronizar los colores (999 = Color Libre)
     private NetworkVariable<ulong> dueñoRojo = new NetworkVariable<ulong>(999, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
@@ -85,7 +87,7 @@ public class LobbyManager : NetworkBehaviour
                 transport.ConnectionData.Address = Ipnumero;
 
                 // Asegúrate de que el puerto coincide con el que guardamos en el NetworkManager (7778 o 7777)
-                transport.ConnectionData.Port = 7778;
+                transport.ConnectionData.Port = Puerto;
             }
         }
 

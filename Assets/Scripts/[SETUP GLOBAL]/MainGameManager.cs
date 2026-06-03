@@ -2,6 +2,7 @@
 using System.Collections;
 using UnityEngine.SceneManagement;
 using Unity.Netcode;
+using System.Linq;
 using TMPro;
 
 public class MainGameManager : NetworkBehaviour
@@ -42,17 +43,24 @@ public class MainGameManager : NetworkBehaviour
 
     void Awake()
     {
-        if (Instance == null) Instance = this;
-        else Destroy(gameObject);
+        if (Instance == null)
+        {
+            Instance = this;
+            // 🌟 FUSIÓN: Solo el mánager único y original sobrevive al cambio de escena
+            DontDestroyOnLoad(gameObject);
+        }
+        else
+        {
+            // Los clones duplicados que intenten colarse al recargar el mapa se eliminan en el acto
+            Destroy(gameObject);
+        }
     }
 
-    // 🌟 REESTRUCTURADO: Los clientes y el host se preparan aquí para escuchar la red
     public override void OnNetworkSpawn()
     {
         estadoActual.OnValueChanged += AlCambiarEstadoGlobal;
         jugadoresListos.OnValueChanged += (viejo, nuevo) => ActualizarTextoListosVisual(nuevo);
 
-        // SEGURO DE RED: Si el cliente entra tarde y el juego ya avanzó de fase, se auto-sincroniza
         if (estadoActual.Value == EstadoJuego.FaseInstrucciones)
         {
             EjecutarFaseInstruccionesLocal();
@@ -79,7 +87,6 @@ public class MainGameManager : NetworkBehaviour
         }
     }
 
-    // --- FASE 1: INTRO (Flujo directo automatizado) ---
     private void EjecutarFaseIntroLocal()
     {
         if (bloqueInicio) bloqueInicio.SetActive(false);
@@ -89,11 +96,9 @@ public class MainGameManager : NetworkBehaviour
 
     IEnumerator SecuenciaIntroCorrutina()
     {
-        // 1. Animación de entrada del Robot
         if (robotAnimator) robotAnimator.SetTrigger("Trig_Entrar");
         yield return new WaitForSeconds(tiempoEntrada);
 
-        // 2. Audio de Introducción
         if (audioSource && audioIntroduccion)
         {
             audioSource.clip = audioIntroduccion;
@@ -103,8 +108,6 @@ public class MainGameManager : NetworkBehaviour
             if (robotAnimator) robotAnimator.SetBool("EsHablando", false);
         }
 
-        // 🌟 EL GRAN CAMBIO AUTOMÁTICO: Cuando termina la intro, el servidor cambia el estado global 
-        // e invoca un RPC directo para despertar las instrucciones en todas las gafas a la vez.
         if (IsServer)
         {
             estadoActual.Value = EstadoJuego.FaseInstrucciones;
@@ -115,17 +118,13 @@ public class MainGameManager : NetworkBehaviour
     [ClientRpc]
     private void ForzarFaseInstruccionesEnClientesClientRpc()
     {
-        // Despierta localmente la fase en los clientes evitando la trampa del retraso por tiempo
         EjecutarFaseInstruccionesLocal();
     }
 
-    // --- FASE 2: INSTRUCCIONES Y READY CHECK ---
     private void EjecutarFaseInstruccionesLocal()
     {
-        // Encendemos el bloque de instrucciones para todos
         if (bloqueInstrucciones) bloqueInstrucciones.SetActive(true);
 
-        // Forzamos que el botón "¡JUGUEMOS!" sea visible y cliqueable por el láser de todos los visores
         if (botonJugarIndividual != null)
         {
             botonJugarIndividual.SetActive(true);
@@ -133,16 +132,13 @@ public class MainGameManager : NetworkBehaviour
             if (btnComp != null) btnComp.interactable = true;
         }
 
-        // Activamos e inicializamos el texto en pantalla (Ej: 0 / 2)
         if (textoContadorListos != null)
         {
             textoContadorListos.gameObject.SetActive(true);
         }
 
-        // Damos un margen de 200ms para procesar los avatares en red y pintar el número correcto
         StartCoroutine(RefrescarTextoInstruccionesConRetraso());
 
-        // Audio de las instrucciones
         if (audioInstrucciones && audioSource)
         {
             audioSource.clip = audioInstrucciones;
@@ -166,7 +162,6 @@ public class MainGameManager : NetworkBehaviour
                 if (client.PlayerObject != null) totalJugadoresVR++;
             }
 
-            // Seguro por si el cliente lee la red antes de auto-registrarse
             if (totalJugadoresVR == 0) totalJugadoresVR = NetworkManager.Singleton.ConnectedClientsIds.Count;
 
             textoContadorListos.text = $"Jugadores listos: {listos} / {totalJugadoresVR}";
@@ -197,7 +192,6 @@ public class MainGameManager : NetworkBehaviour
         }
     }
 
-    // --- FASE 3: GAMEPLAY ---
     private void EjecutarTransicionAVRLocal()
     {
         if (textoContadorListos != null) textoContadorListos.gameObject.SetActive(false);
@@ -225,7 +219,6 @@ public class MainGameManager : NetworkBehaviour
         }
     }
 
-    // --- FASE 4: VICTORIA Y REINICIO ---
     public void FinalizarExperienciaCompleta()
     {
         if (IsServer) estadoActual.Value = EstadoJuego.FaseVictoria;
@@ -244,27 +237,61 @@ public class MainGameManager : NetworkBehaviour
             botonReiniciarHost.SetActive(IsServer);
         }
     }
-
     private void GenerarPodioDeJugadores()
     {
         if (textoResultados == null) return;
 
-        string podioText = "<size=120%>PUNTUACIONES FINALES</size>\n\n";
+        // Cabecera limpia y estilizada al estilo de tu menú de conectados
+        string podioText = "<size=110%><b>PODIO DE LA SIMULACIÓN:</b></size>\n\n";
 
+        // 1. Filtramos los clientes conectados con un avatar físico real
+        var listaJugadoresValidos = new System.Collections.Generic.List<NetworkClient>();
         foreach (var cliente in NetworkManager.Singleton.ConnectedClientsList)
         {
             if (cliente.PlayerObject != null)
             {
-                PlayerNetworkState estado = cliente.PlayerObject.GetComponent<PlayerNetworkState>();
-                if (estado != null)
-                {
-                    Color colorJugador = new Color(estado.colorJugadorNet.Value.x, estado.colorJugadorNet.Value.y, estado.colorJugadorNet.Value.z);
-                    string hexColor = ColorUtility.ToHtmlStringRGB(colorJugador);
-                    podioText += $"<color=#{hexColor}>■</color> Jugador {(cliente.ClientId == 0 ? "Líder" : cliente.ClientId.ToString())}: <b>{estado.puntuacion.Value} pts</b>\n";
-                }
+                listaJugadoresValidos.Add(cliente);
             }
         }
 
+        // 2. Ordenamos el podio por puntuación de mayor a menor leyendo desde PlayerAvatarSync
+        var jugadoresOrdenados = listaJugadoresValidos.OrderByDescending(c => {
+            PlayerAvatarSync estado = c.PlayerObject.GetComponent<PlayerAvatarSync>();
+            return estado != null ? estado.puntuacion.Value : 0;
+        }).ToList();
+
+        // 3. Recorremos los puestos aplicando la lógica exacta de tu LobbyManager
+        int puesto = 1;
+        foreach (var cliente in jugadoresOrdenados)
+        {
+            PlayerAvatarSync estado = cliente.PlayerObject.GetComponent<PlayerAvatarSync>();
+            if (estado != null)
+            {
+                string nombreColorTexto = "VR";
+                string colorTag = "white";
+
+                // 🌟 LA REGLA SOBERANA: Consultamos la base de datos exacta de tu LobbyManager activo
+                if (LobbyManager.Instance != null)
+                {
+                    Color colorRealDelJugador = LobbyManager.Instance.ObtenerColorPorID(cliente.ClientId);
+
+                    // Mapeamos los colores con tus mismos nombres y tags de la UI del Lobby
+                    if (colorRealDelJugador == Color.red) { colorTag = "red"; nombreColorTexto = "Rojo"; }
+                    else if (colorRealDelJugador == Color.blue) { colorTag = "blue"; nombreColorTexto = "Azul"; }
+                    else if (colorRealDelJugador == Color.green) { colorTag = "green"; nombreColorTexto = "Verde"; }
+                    else if (colorRealDelJugador == Color.yellow) { colorTag = "yellow"; nombreColorTexto = "Amarillo"; }
+                }
+
+                // 🌟 TU DISEÑO LOGRADO: 
+                // - El cuadro "■" se escala ligeramente un poco más grande (<size=130%>) para que destaque.
+                // - Toma de forma estricta los strings de color nativos del Lobby (red, blue, green, yellow).
+                // - Todo el bloque de datos restante se mantiene en blanco puro e independiente.
+                podioText += $"<size=130%><color={colorTag}>■</color></size>  <color=white><b>Puesto {puesto}</b>  -  Jugador VR ({nombreColorTexto}):  <b>{estado.puntuacion.Value} pts</b></color>\n\n";
+            }
+            puesto++;
+        }
+
+        // 4. Inyectamos el string definitivo en el Canvas del podio final
         textoResultados.text = podioText;
     }
 

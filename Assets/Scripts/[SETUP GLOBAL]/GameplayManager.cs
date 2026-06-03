@@ -108,38 +108,33 @@ public class GameplayManager : NetworkBehaviour
 
     private void SpawnArmasEnPuntos()
     {
+        if (!IsServer) return;
         if (prefabArma == null) return;
 
-        // Limpiamos la lista previa de armas para evitar fugas de memoria
         armasSpawneadas.Clear();
 
-        // Recorremos la lista oficial de clientes conectados en la sesión
         foreach (var client in NetworkManager.Singleton.ConnectedClientsList)
         {
-            // El ClientId (0, 1, 2, 3) nos dice exactamente qué número de jugador es
             int idJugador = (int)client.ClientId;
 
-            // Aseguramos que el jugador tenga un punto de spawn asignado en el mapa
             if (idJugador < puntosDeSpawnJugadores.Count)
             {
-                // Sacamos el punto de spawn exacto que le pertenece a ESTE ID de red
                 Transform puntoSpawn = puntosDeSpawnJugadores[idJugador];
 
-                // Calculamos el espacio modular: 50cm al frente de sus ojos y a 1.2m de altura del suelo
+                // Calculamos la posición frente al punto de spawn del jugador
                 Vector3 posicionArma = puntoSpawn.position + (puntoSpawn.forward * 0.5f) + (Vector3.up * 1.2f);
 
-                // El servidor crea la instancia física del arma
+                // El Servidor instancia la pistola
                 GameObject miArma = Instantiate(prefabArma, posicionArma, puntoSpawn.rotation);
                 NetworkObject netObj = miArma.GetComponent<NetworkObject>();
 
                 if (netObj != null)
                 {
-                    // 🌟 LA REGLA DE ORO: Spawneamos el arma asignándole el Ownership (Dueño) 
-                    // exclusivo al idJugador correspondiente. ¡Un arma por persona, sin duplicados!
-                    netObj.SpawnWithOwnership(client.ClientId);
+                    // Al nacer con Ownership, el script WeaponDisplay sabrá autónomamente de quién es
+                    netObj.SpawnWithOwnership(client.ClientId, true);
                     armasSpawneadas.Add(netObj);
 
-                    Debug.Log($"[SERVER] Arma spawneada y asignada con éxito al Jugador ID: {idJugador} de forma exclusiva.");
+                    Debug.Log($"[SERVER] Arma creada y firmada legalmente por el Servidor para el Jugador ID: {idJugador}");
                 }
             }
         }
@@ -185,9 +180,22 @@ public class GameplayManager : NetworkBehaviour
 
         if (asteroideElegido != null)
         {
+            // 🌟 COMPROBACIÓN PREVIA: Si el prefab original no tiene NetworkObject, ni siquiera lo instanciamos
+            if (asteroideElegido.GetComponent<NetworkObject>() == null)
+            {
+                Debug.LogError($"[GAMEPLAY MANAGER] ¡Alerta Crítica! El prefab '{asteroideElegido.name}' no tiene un componente NetworkObject. Asegúrate de ponérselo en el inspector y registrarlo en el NetworkManager.");
+                return;
+            }
+
             GameObject nuevoAsteroide = Instantiate(asteroideElegido, puntoAleatorio.position, puntoAleatorio.rotation);
-            NetworkObject netObj = nuevoAsteroide.GetComponent<NetworkObject>();
-            if (netObj != null) netObj.Spawn();
+
+            // Buscamos de forma ultra-segura en la raíz o hijos
+            NetworkObject netObj = nuevoAsteroide.GetComponent<NetworkObject>() ?? nuevoAsteroide.GetComponentInChildren<NetworkObject>();
+
+            if (netObj != null && NetworkManager.Singleton.IsServer)
+            {
+                netObj.Spawn(true); // Spawnea de forma segura en toda la red
+            }
         }
     }
 

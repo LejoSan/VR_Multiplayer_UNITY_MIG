@@ -3,109 +3,168 @@ using UnityEngine;
 
 public class PlayerAvatarSync : NetworkBehaviour
 {
-    [Header("Componentes Visuales Reales (Mallas)")]
+    [Header("--- Datos Sincronizados de Red ---")]
+    public NetworkVariable<int> puntuacion = new NetworkVariable<int>(0, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
+    public NetworkVariable<Vector4> colorJugadorNet = new NetworkVariable<Vector4>(Vector4.one, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
+
+    [Header("--- Sincronización de Movimiento en Red ---")]
+    public NetworkVariable<Vector3> posCabeza = new NetworkVariable<Vector3>(Vector3.zero, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
+    public NetworkVariable<Quaternion> rotCabeza = new NetworkVariable<Quaternion>(Quaternion.identity, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
+
+    public NetworkVariable<Vector3> posManoIzq = new NetworkVariable<Vector3>(Vector3.zero, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
+    public NetworkVariable<Quaternion> rotManoIzq = new NetworkVariable<Quaternion>(Quaternion.identity, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
+
+    public NetworkVariable<Vector3> posManoDer = new NetworkVariable<Vector3>(Vector3.zero, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
+    public NetworkVariable<Quaternion> rotManoDer = new NetworkVariable<Quaternion>(Quaternion.identity, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
+
+    [Header("Componentes Visuales Reales")]
     public Renderer mallaCabezaCompleta;
-    // 🌟 NUEVO: Si tienes una malla para el Torso/Cuerpo, la arrastras aquí para pintarla del mismo color
     public Renderer mallaTorsoCuerpo;
 
     [Header("Referencias Locales para Movimiento")]
-    public Transform avatarHeadParent; // El contenedor/padre de la cabeza
+    public Transform avatarHeadParent;
+    public Transform avatarTorsoParent; // 🌟 NUEVO: Esto obligará al cuerpo a seguirte
     public Transform avatarLeftHand;
     public Transform avatarRightHand;
-    // 🌟 NUEVO: Arrastra el objeto Padre del Torso aquí si quieres que flote justo debajo de la cabeza
-    public Transform avatarTorsoParent;
 
     private Transform localHead;
     private Transform localLeftHand;
     private Transform localRightHand;
-    private Renderer[] mallasDelAvatar;
-
-    void Awake()
-    {
-        mallasDelAvatar = GetComponentsInChildren<Renderer>();
-        CambiarVisibilidadAvatar(false);
-    }
 
     public override void OnNetworkSpawn()
     {
         if (IsOwner)
         {
-            if (Camera.main != null) localHead = Camera.main.transform;
+            EstablecerColorInicialServerRpc(NetworkManager.Singleton.LocalClientId);
+            VincularComponentesXRActivosLocal();
+        }
 
-            GameObject leftController = GameObject.Find("Left Controller");
-            if (leftController) localLeftHand = leftController.transform;
+        colorJugadorNet.OnValueChanged += (oldVal, newVal) => ActivarVisibilidadEnPartida();
+        ActivarVisibilidadEnPartida();
+    }
 
-            GameObject rightController = GameObject.Find("Right Controller");
-            if (rightController) localRightHand = rightController.transform;
+    public void VincularComponentesXRActivosLocal()
+    {
+        if (!IsOwner) return;
+
+        // 1. La cabeza es estrictamente la cámara principal del visor
+        if (Camera.main != null) localHead = Camera.main.transform;
+
+        GameObject leftController = GameObject.Find("Left Controller") ?? GameObject.FindGameObjectWithTag("LeftHand");
+        if (leftController != null) localLeftHand = leftController.transform;
+
+        GameObject rightController = GameObject.Find("Right Controller") ?? GameObject.FindGameObjectWithTag("RightHand");
+        if (rightController != null) localRightHand = rightController.transform;
+    }
+
+    [ServerRpc]
+    private void EstablecerColorInicialServerRpc(ulong idCliente)
+    {
+        if (LobbyManager.Instance != null)
+        {
+            Color colorElegido = LobbyManager.Instance.ObtenerColorPorID(idCliente);
+            colorJugadorNet.Value = new Vector4(colorElegido.r, colorElegido.g, colorElegido.b, colorElegido.a);
         }
     }
 
     public void ActivarVisibilidadEnPartida()
     {
-        CambiarVisibilidadAvatar(true);
+        Color colorAsignado = new Color(colorJugadorNet.Value.x, colorJugadorNet.Value.y, colorJugadorNet.Value.z, colorJugadorNet.Value.w);
 
-        // 🌟 PINTADO MULTIJUGADOR SEGURO (Mantiene tu lógica de color de equipo):
-        if (LobbyManager.Instance != null)
-        {
-            Color colorAsignado = LobbyManager.Instance.ObtenerColorPorID(OwnerClientId);
+        // Usamos una función especial que fuerza el pintado en materiales normales o URP
+        AplicarColorMaterial(mallaCabezaCompleta, colorAsignado);
+        AplicarColorMaterial(mallaTorsoCuerpo, colorAsignado);
 
-            // Pintamos la Cabeza
-            if (mallaCabezaCompleta != null)
-            {
-                mallaCabezaCompleta.material.color = colorAsignado;
-                Debug.Log($"[AVATAR] Malla de la cara del jugador {OwnerClientId} pintada.");
-            }
-
-            // Pintamos el Torso/Cuerpo con el mismo color asignado
-            if (mallaTorsoCuerpo != null)
-            {
-                mallaTorsoCuerpo.material.color = colorAsignado;
-            }
-        }
-
-        // 🚨 EL APAGADO DEL DUEÑO (Para que no veas tu propio cuerpo flotando en tus ojos)
-        // Quita los comentarios (//) si quieres que en tus gafas sea invisible, pero tus amigos sí te vean.
-        /*
         if (IsOwner)
         {
+            // Apagamos tu propia cabeza localmente para que la cámara no se bloquee por dentro del modelo
             if (mallaCabezaCompleta != null) mallaCabezaCompleta.enabled = false;
-            if (mallaTorsoCuerpo != null) mallaTorsoCuerpo.enabled = false;
         }
-        */
     }
 
-    private void CambiarVisibilidadAvatar(bool visible)
+    private void AplicarColorMaterial(Renderer render, Color color)
     {
-        if (mallasDelAvatar == null) return;
-        foreach (var render in mallasDelAvatar)
+        if (render != null && render.material != null)
         {
-            if (render != null) render.enabled = visible;
+            // Soporte universal de color para proyectos VR
+            if (render.material.HasProperty("_BaseColor")) render.material.SetColor("_BaseColor", color);
+            else render.material.color = color;
         }
     }
-
+    
+    public void ModificarPuntuacionServer(int cantidadBase)
+    {
+        if (!IsServer) return;
+        puntuacion.Value += cantidadBase;
+    }
     void Update()
     {
         if (IsOwner)
         {
-            // 🌟 EL ENFOQUE DE VALEM TUTORIALS:
-            // El objeto raíz copia exactamente la posición y rotación global de tu visor VR.
-            // Toda la inclinación, giro y traslación se hereda limpiamente hacia abajo.
-            if (localHead)
+            // Auto-reconexión de la cámara si la escena cambia
+            if (localHead == null || localLeftHand == null || localRightHand == null)
             {
-                transform.position = localHead.position;
-                transform.rotation = localHead.rotation;
+                VincularComponentesXRActivosLocal();
             }
 
-            // Las manos copian de forma local e independiente sus controladores físicos
+            if (localHead && avatarHeadParent)
+            {
+                // Sincronizamos la cabeza con el visor real
+                avatarHeadParent.position = localHead.position;
+                avatarHeadParent.rotation = localHead.rotation;
+
+                posCabeza.Value = localHead.position;
+                rotCabeza.Value = localHead.rotation;
+
+                // 🌟 SINCRONIZACIÓN DEL TORSO: Sigue a la cabeza, 40cm por debajo, sin rotar hacia arriba/abajo
+                if (avatarTorsoParent)
+                {
+                    Vector3 posTorso = localHead.position - new Vector3(0, 0.4f, 0);
+                    avatarTorsoParent.position = posTorso;
+                    avatarTorsoParent.rotation = Quaternion.Euler(0, localHead.eulerAngles.y, 0);
+                }
+            }
             if (localLeftHand && avatarLeftHand)
             {
                 avatarLeftHand.position = localLeftHand.position;
                 avatarLeftHand.rotation = localLeftHand.rotation;
+
+                posManoIzq.Value = localLeftHand.position;
+                rotManoIzq.Value = localLeftHand.rotation;
             }
             if (localRightHand && avatarRightHand)
             {
                 avatarRightHand.position = localRightHand.position;
                 avatarRightHand.rotation = localRightHand.rotation;
+
+                posManoDer.Value = localRightHand.position;
+                rotManoDer.Value = localRightHand.rotation;
+            }
+        }
+        else
+        {
+            // 🌟 LÓGICA DE MULTIJUGADOR: Qué haces cuando ves al otro jugador
+            if (avatarHeadParent)
+            {
+                avatarHeadParent.position = posCabeza.Value;
+                avatarHeadParent.rotation = rotCabeza.Value;
+
+                if (avatarTorsoParent)
+                {
+                    Vector3 posTorso = posCabeza.Value - new Vector3(0, 0.4f, 0);
+                    avatarTorsoParent.position = posTorso;
+                    avatarTorsoParent.rotation = Quaternion.Euler(0, rotCabeza.Value.eulerAngles.y, 0);
+                }
+            }
+            if (avatarLeftHand)
+            {
+                avatarLeftHand.position = posManoIzq.Value;
+                avatarLeftHand.rotation = rotManoIzq.Value;
+            }
+            if (avatarRightHand)
+            {
+                avatarRightHand.position = posManoDer.Value;
+                avatarRightHand.rotation = rotManoDer.Value;
             }
         }
     }

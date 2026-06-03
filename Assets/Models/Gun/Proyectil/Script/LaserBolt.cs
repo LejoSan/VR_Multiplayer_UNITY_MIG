@@ -18,7 +18,7 @@ public class LaserBolt : NetworkBehaviour
 
     public override void OnNetworkSpawn()
     {
-        // ¡SITIO SEGURO! Si somos el servidor, programamos su destrucción aquí
+        // ¡SITIO SEGURO! Si somos el servidor, programamos su destrucción por tiempo
         if (IsServer)
         {
             Invoke("DestruirLaser", tiempoDeVida);
@@ -33,7 +33,6 @@ public class LaserBolt : NetworkBehaviour
 
     private void AplicarColorDelTirador(ulong idTirador)
     {
-        // Si el LobbyManager existe, le pedimos el color asociado a esa ID
         if (LobbyManager.Instance != null && idTirador != 999)
         {
             Color colorTirador = LobbyManager.Instance.ObtenerColorPorID(idTirador);
@@ -42,22 +41,24 @@ public class LaserBolt : NetworkBehaviour
             if (renderLaser != null)
             {
                 renderLaser.material.color = colorTirador;
-                // Si usas materiales con emisión (brillo/HDR), esta línea hace que el color brille:
+                // Efecto de emisión/brillo HDR
                 renderLaser.material.SetColor("_EmissionColor", colorTirador * 2.5f);
             }
-
         }
     }
 
     void Update()
     {
+        // Movimiento hacia adelante del proyectil
         transform.Translate(Vector3.up * velocidad * Time.deltaTime);
     }
 
     private void OnTriggerEnter(Collider other)
     {
+        // Solo el servidor gestiona colisiones de juego y lógicas de red
         if (!IsServer) return;
 
+        // Filtro de seguridad para no explotar en tus manos, tu cuerpo o tus propias armas
         if (other.CompareTag("Player") || other.CompareTag("Arma") || other.CompareTag("Proyectil") || other.gameObject.layer == gameObject.layer)
         {
             return;
@@ -65,10 +66,15 @@ public class LaserBolt : NetworkBehaviour
 
         if (other.CompareTag("Objetivo"))
         {
-            AsteroidTarget asteroide = other.GetComponent<AsteroidTarget>();
-            if (asteroide != null)
+            AsteroidTarget asteroideBase = other.GetComponent<AsteroidTarget>() ?? other.GetComponentInParent<AsteroidTarget>();
+            if (asteroideBase != null)
             {
-                asteroide.RecibirDisparoEnRed(idDueño.Value);
+                // 🌟 LA MAGIA DE NETCODE: Extraemos el OwnerClientId nativo de esta bala.
+                // Este ID representa de forma infalible al jugador que invocó el disparo.
+                ulong idTiradorReal = OwnerClientId;
+
+                // Le pasamos el ID real al asteroide para que procese el premio
+                asteroideBase.RecibirDisparoEnRed(idTiradorReal);
             }
         }
 
@@ -80,45 +86,21 @@ public class LaserBolt : NetworkBehaviour
         DestruirLaser();
     }
 
-    //void DestruirLaser()
-    //{
-    //    // Si ya chocamos hace un milisegundo, abortamos
-    //    if (yaDestruido) return;
-
-    //    // Buscamos el componente de red de forma segura
-    //    NetworkObject miNetObj = GetComponent<NetworkObject>();
-
-    //    // Si somos el servidor, el objeto tiene componente de red, y sigue vivo en la red
-    //    if (IsServer && miNetObj != null && miNetObj.IsSpawned)
-    //    {
-    //        yaDestruido = true; // Activamos el seguro
-    //        miNetObj.Despawn(); // Lo destruimos para todos
-    //    }
-    //    else if (miNetObj == null)
-    //    {
-    //        // Solo por si acaso olvidaste ponerle el componente en el inspector
-    //        Debug.LogWarning("¡Aviso! Al láser le falta el componente NetworkObject.");
-    //        Destroy(gameObject);
-    //    }
-    //}
-
     void DestruirLaser()
     {
         if (yaDestruido) return;
 
-        // 🌟 CORREGIDO: Buscamos en el objeto actual, en el padre, o en la raíz absoluta.
-        // Esto garantiza encontrar el NetworkObject sin importar dónde esté el script guardado.
+        // Buscamos de forma segura el NetworkObject en cualquier nivel del objeto
         NetworkObject miNetObj = GetComponent<NetworkObject>() ?? GetComponentInParent<NetworkObject>();
 
         if (IsServer && miNetObj != null && miNetObj.IsSpawned)
         {
             yaDestruido = true;
-            miNetObj.Despawn(); // Se destruye oficialmente en toda la red de forma sincronizada
+            miNetObj.Despawn(); // Se destruye de forma sincronizada en todas las gafas
         }
         else if (miNetObj == null)
         {
-            // Si entra aquí, es que físicamente el prefab no tiene el componente en ningún nivel
-            Debug.LogWarning("¡Aviso Crítico! Al prefab del láser le falta el componente NetworkObject en todos sus niveles.");
+            Debug.LogWarning("¡Aviso! Al prefab del láser le falta el componente NetworkObject.");
             Destroy(gameObject);
         }
     }

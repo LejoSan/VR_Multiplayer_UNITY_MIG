@@ -12,6 +12,7 @@ GameObject:
   - component: {fileID: 5265674437983088423}
   - component: {fileID: 7705757914012069978}
   - component: {fileID: 2024893173504838882}
+  - component: {fileID: 5058060610301426681}
   - component: {fileID: 2613747528441898885}
   - component: {fileID: 5503011331775871284}
   - component: {fileID: 2976410672675352175}
@@ -108,12 +109,26 @@ BoxCollider:
     serializedVersion: 2
     m_Bits: 0
   m_LayerOverridePriority: 0
-  m_IsTrigger: 0
+  m_IsTrigger: 1
   m_ProvidesContacts: 0
   m_Enabled: 1
   serializedVersion: 3
   m_Size: {x: 0.016608678, y: 0.018467642, z: 0.003922676}
   m_Center: {x: -0.002115401, y: 0, z: 0}
+--- !u!114 &5058060610301426681
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5641187626466492266}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2ea69abc43e375e4aa64edf53d968765, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::AsteroidData
+  nombreAsteroide: "Asteroide B\xE1sico"
+  puntosAlDestruir: 100
 --- !u!114 &2613747528441898885
 MonoBehaviour:
   m_ObjectHideFlags: 0

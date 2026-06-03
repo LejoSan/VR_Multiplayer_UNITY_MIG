@@ -380,7 +380,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Unity.Netcode.Runtime::Unity.Netcode.NetworkObject
-  GlobalObjectIdHash: 3766337134
+  GlobalObjectIdHash: 3519340313
   InScenePlacedSourceGlobalObjectIdHash: 0
   DeferredDespawnTick: 0
   Ownership: 1
@@ -423,6 +423,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 99d3d36c62ac91946bba04180f0b2e3e, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::WeaponDisplay
+  ShowTopMostFoldoutHeaderGroup: 1
   textoTiempo: {fileID: 8112148003916071130}
   textoPuntuacion: {fileID: 3099664899018728242}
 --- !u!114 &3505816639943270009

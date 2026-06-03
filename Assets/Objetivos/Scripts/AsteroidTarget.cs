@@ -1,4 +1,4 @@
-using UnityEngine;
+Ôªøusing UnityEngine;
 using Unity.Netcode;
 
 // Ahora hereda de NetworkBehaviour
@@ -9,7 +9,7 @@ public class AsteroidTarget : NetworkBehaviour
     public float escalaFinal = 1.5f;
     public float distanciaDeCrecimiento = 60f;
 
-    [Header("--- LÛgica de Juego ---")]
+    [Header("--- L√≥gica de Juego ---")]
     public int puntosQueDa = 10;
     public GameObject efectoExplosion;
 
@@ -23,7 +23,7 @@ public class AsteroidTarget : NetworkBehaviour
     private Vector3 direccionViaje;
     private Vector3 escalaObjetivoVector;
 
-    // El centro del mapa (0,0,0) donde estar·n los 4 jugadores
+    // El centro del mapa (0,0,0) donde estar√°n los 4 jugadores
     private Vector3 centroDelMapa = Vector3.zero;
 
     void Start()
@@ -31,7 +31,7 @@ public class AsteroidTarget : NetworkBehaviour
         transform.localScale = Vector3.one * escalaInicial;
         escalaObjetivoVector = Vector3.one * escalaFinal;
 
-        // Solo el Servidor calcula las matem·ticas de movimiento
+        // Solo el Servidor calcula las matem√°ticas de movimiento
         if (IsServer)
         {
             velocidadFinal = Random.Range(velocidadMin, velocidadMax);
@@ -43,11 +43,11 @@ public class AsteroidTarget : NetworkBehaviour
     {
         Vector3 puntoDestino = centroDelMapa;
 
-        // Un poco de variaciÛn para que no vayan todos exactamente al mismo pixel
+        // Un poco de variaci√≥n para que no vayan todos exactamente al mismo pixel
         if (Random.value > probabilidadDeImpacto)
         {
             puntoDestino += Random.insideUnitSphere * margenDeError;
-            // Evitamos que varÌen en altura (Y) para que no vayan al suelo
+            // Evitamos que var√≠en en altura (Y) para que no vayan al suelo
             puntoDestino.y = Mathf.Clamp(puntoDestino.y, 1f, 3f);
         }
 
@@ -63,45 +63,72 @@ public class AsteroidTarget : NetworkBehaviour
             transform.position += direccionViaje * velocidadFinal * Time.deltaTime;
         }
 
-        // El giro estÈtico y el crecimiento lo pueden calcular todos localmente para que se vea s˙per fluido
+        // El giro est√©tico y el crecimiento lo pueden calcular todos localmente para que se vea s√∫per fluido
         transform.Rotate(Vector3.up * 50f * Time.deltaTime, Space.Self);
 
         float distanciaActual = Vector3.Distance(transform.position, centroDelMapa);
         float t = Mathf.InverseLerp(distanciaDeCrecimiento, 0f, distanciaActual);
         transform.localScale = Vector3.Lerp(Vector3.one * escalaInicial, escalaObjetivoVector, t);
 
-        // Si el asteroide llega al centro (0,0,0) y nadie le disparÛ, el Servidor lo destruye
+        // Si el asteroide llega al centro (0,0,0) y nadie le dispar√≥, el Servidor lo destruye
         if (IsServer && distanciaActual < 1.0f)
         {
             GetComponent<NetworkObject>().Despawn();
         }
     }
 
-    // --- NUEVA FUNCI”N DE IMPACTO EN RED ---
+    // --- FUNCI√ìN DE IMPACTO EN RED ADAPTADA AL AVATAR UNIFICADO ---
     public void RecibirDisparoEnRed(ulong idTirador)
     {
-        if (!IsServer) return; // Por si acaso
+        if (!IsServer) return; // Control de seguridad obligatorio: Solo el servidor altera variables de red
 
-        Debug.Log($"°El jugador {idTirador} ha destruido un asteroide!");
+        Debug.Log($"<color=cyan><b>[ASTEROIDE IMPACTADO]</b></color> Impacto detectado. ID del tirador recibido: {idTirador}");
 
-        // 1. Buscar al jugador que disparÛ y darle los puntos
-        foreach (var cliente in NetworkManager.Singleton.ConnectedClientsList)
+        int puntosASumar = puntosQueDa;
+
+        // Lectura del sistema modular de puntos
+        AsteroidData datosModulares = GetComponent<AsteroidData>() ?? GetComponentInChildren<AsteroidData>();
+        if (datosModulares != null)
         {
-            if (cliente.ClientId == idTirador && cliente.PlayerObject != null)
+            puntosASumar = datosModulares.puntosAlDestruir;
+            Debug.Log($"<color=yellow><b>[SISTEMA MODULAR]</b></color> Detectado '{datosModulares.nombreAsteroide}'. Puntos a otorgar: {datosModulares.puntosAlDestruir}");
+        }
+
+        // üåü CAMBIO CLAVE: Cambiamos el tipo de variable al script unificado que s√≠ est√° en la escena
+        PlayerAvatarSync estadoJugador = null;
+
+        // Escaneamos todos los avatares activos en el mapa usando el nuevo componente
+        PlayerAvatarSync[] todosLosAvatares = FindObjectsByType<PlayerAvatarSync>(FindObjectsSortMode.None);
+
+        Debug.Log($"<color=orange><b>[AUDITOR√çA DE RED]</b></color> Escaneando escena... Se encontraron {todosLosAvatares.Length} scripts PlayerAvatarSync en el mapa.");
+
+        foreach (var avatar in todosLosAvatares)
+        {
+            // Este log te reportar√° los IDs reales de los avatares sincronizados en partida
+            Debug.Log($"-> Avatar detectado en escena: Nombre: '{avatar.gameObject.name}' | OwnerClientId Real: {avatar.OwnerClientId} | IsOwner: {avatar.IsOwner}");
+
+            if (avatar.OwnerClientId == idTirador)
             {
-                PlayerNetworkState estadoJugador = cliente.PlayerObject.GetComponent<PlayerNetworkState>();
-                if (estadoJugador != null)
-                {
-                    estadoJugador.ModificarPuntuacionServer(puntosQueDa);
-                }
-                break; // Jugador encontrado y puntuado, salimos del bucle
+                estadoJugador = avatar;
+                break;
             }
         }
 
-        // 2. Crear la explosiÛn visual en las gafas de todos (ClientRPC)
+        // Si encontramos el avatar que dispar√≥, le inyectamos los puntos de forma autoritaria
+        if (estadoJugador != null)
+        {
+            estadoJugador.ModificarPuntuacionServer(puntosASumar);
+            Debug.Log($"<color=green><b>[PUNTUACI√ìN ASIGNADA]</b></color> ¬°√âxito absoluto! Se sumaron {puntosASumar} pts al ID: {idTirador}. Puntos actuales en red: {estadoJugador.puntuacion.Value}");
+        }
+        else
+        {
+            Debug.LogError($"[ERROR CR√çTICO] El Servidor detect√≥ el disparo del ID {idTirador}, pero no hay ning√∫n script PlayerAvatarSync en el mapa que coincida con ese OwnerClientId.");
+        }
+
+        // 2. Generamos la explosi√≥n visual y sonora en todos los clientes
         CrearExplosionClientRpc(transform.position);
 
-        // 3. Destruir el asteroide en la red
+        // 3. El servidor retira el asteroide del mapa de forma limpia y sincronizada
         if (GetComponent<NetworkObject>().IsSpawned)
         {
             GetComponent<NetworkObject>().Despawn();
@@ -120,7 +147,7 @@ public class AsteroidTarget : NetworkBehaviour
                 fuenteAudio.pitch = Random.Range(0.85f, 1.15f);
                 fuenteAudio.Play();
             }
-            Destroy(explosion, 2f); // DestrucciÛn puramente visual y local
+            Destroy(explosion, 2f); // Destrucci√≥n puramente visual y local
         }
     }
 }
