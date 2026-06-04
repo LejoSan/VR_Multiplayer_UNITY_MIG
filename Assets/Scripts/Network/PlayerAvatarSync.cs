@@ -8,8 +8,8 @@ public class PlayerAvatarSync : NetworkBehaviour
     public Renderer mallaTorsoCuerpo;
 
     [Header("Referencias Locales para Movimiento")]
-    public Transform avatarHeadParent;  // Asigna aquí el nodo HeadCalibration
-    public Transform avatarTorsoParent; // Asigna aquí el nodo TorsoCalibration
+    public Transform avatarHeadParent;  // Nodo HeadCalibration
+    public Transform avatarTorsoParent; // Nodo TorsoCalibration
     public Transform avatarLeftHand;
     public Transform avatarRightHand;
 
@@ -21,6 +21,7 @@ public class PlayerAvatarSync : NetworkBehaviour
 
     void Awake()
     {
+        // Al despertar, aseguramos que nazcan completamente invisibles
         mallasDelAvatar = GetComponentsInChildren<Renderer>();
         CambiarVisibilidadAvatar(false);
     }
@@ -40,36 +41,58 @@ public class PlayerAvatarSync : NetworkBehaviour
             if (rightController) localRightHand = rightController.transform;
         }
 
+        // 🌟 REGLA DE LOBBY: Cuando cambie el color en el lobby, solo actualizamos el material, NO encendemos la malla
         if (networkState != null)
         {
-            networkState.colorJugadorNet.OnValueChanged += (oldVal, newVal) => ActivarVisibilidadEnPartida();
+            networkState.colorJugadorNet.OnValueChanged += (oldVal, newVal) => ActualizarColorMateriales();
         }
-        ActivarVisibilidadEnPartida();
+
+        // Forzamos el apagado estricto en el Lobby
+        CambiarVisibilidadAvatar(false);
+
+        // Plan de emergencia: Si el jugador entra tarde a la partida y ya están jugando el Bloque 4, lo activamos inmediatamente
+        if (MainGameManager.Instance != null && MainGameManager.Instance.estadoActual.Value == MainGameManager.EstadoJuego.FaseGameplay)
+        {
+            ActivarVisibilidadEnPartida();
+        }
     }
 
-    public void ActivarVisibilidadEnPartida()
+    // 🌟 NUEVO MÉTODO: Cambia el color de los materiales en la memoria sin hacer visible al robot todavía
+    private void ActualizarColorMateriales()
     {
-        CambiarVisibilidadAvatar(true);
+        if (networkState == null) return;
 
-        if (LobbyManager.Instance != null)
+        Vector4 vectorColor = networkState.colorJugadorNet.Value;
+        Color colorAsignado = new Color(vectorColor.x, vectorColor.y, vectorColor.z, vectorColor.w);
+
+        if (colorAsignado == Color.white && LobbyManager.Instance != null)
         {
-            Color colorAsignado = LobbyManager.Instance.ObtenerColorPorID(OwnerClientId);
-
-            if (mallaCabezaCompleta != null && mallaCabezaCompleta.material != null)
-            {
-                if (mallaCabezaCompleta.material.HasProperty("_BaseColor")) mallaCabezaCompleta.material.SetColor("_BaseColor", colorAsignado);
-                else mallaCabezaCompleta.material.color = colorAsignado;
-            }
-
-            if (mallaTorsoCuerpo != null && mallaTorsoCuerpo.material != null)
-            {
-                if (mallaTorsoCuerpo.material.HasProperty("_BaseColor")) mallaTorsoCuerpo.material.SetColor("_BaseColor", colorAsignado);
-                else mallaTorsoCuerpo.material.color = colorAsignado;
-            }
+            colorAsignado = LobbyManager.Instance.ObtenerColorPorID(OwnerClientId);
         }
 
-        // Al jugar, ocultamos tu propio modelo local para despejar la vista de tus gafas.
-        // Los demás usuarios de la sesión de red SÍ te verán con tu color y movimientos corporales.
+        if (mallaCabezaCompleta != null && mallaCabezaCompleta.material != null)
+        {
+            if (mallaCabezaCompleta.material.HasProperty("_BaseColor")) mallaCabezaCompleta.material.SetColor("_BaseColor", colorAsignado);
+            else mallaCabezaCompleta.material.color = colorAsignado;
+        }
+
+        if (mallaTorsoCuerpo != null && mallaTorsoCuerpo.material != null)
+        {
+            if (mallaTorsoCuerpo.material.HasProperty("_BaseColor")) mallaTorsoCuerpo.material.SetColor("_BaseColor", colorAsignado);
+            else mallaTorsoCuerpo.material.color = colorAsignado;
+        }
+    }
+
+    // Este método solo será invocado de forma oficial por el GameplayManager al iniciar el Bloque 4
+    public void ActivarVisibilidadEnPartida()
+    {
+        // 1. Aseguramos que los materiales tengan el color correcto
+        ActualizarColorMateriales();
+
+        // 2. ¡AHORA SÍ! Hacemos aparecer al robot oficialmente en el mapa
+        CambiarVisibilidadAvatar(true);
+
+        // 3. Tu propia restricción de vista VR en primera persona
         //if (IsOwner)
         //{
         //    if (mallaCabezaCompleta != null) mallaCabezaCompleta.enabled = false;
@@ -94,17 +117,14 @@ public class PlayerAvatarSync : NetworkBehaviour
         {
             if (localHead)
             {
-                // La raíz del objeto se acopla a la posición real del visor
                 transform.position = localHead.position;
 
-                // 🌟 ALINEACIÓN REAL: La cabeza copia la posición global, pero mantiene su rotación local correctiva limpia
                 if (avatarHeadParent)
                 {
                     avatarHeadParent.position = localHead.position;
                     avatarHeadParent.rotation = localHead.rotation;
                 }
 
-                // El torso sigue a la cabeza hacia abajo, pero solo gira en el eje Y (evita que el cuerpo se incline al mirar arriba/abajo)
                 if (avatarTorsoParent)
                 {
                     Vector3 posTorso = localHead.position - new Vector3(0, 0.4f, 0);
@@ -134,7 +154,6 @@ public class PlayerAvatarSync : NetworkBehaviour
         }
         else
         {
-            // Réplica autoritaria para los compañeros de la sala multijugador
             if (avatarHeadParent)
             {
                 avatarHeadParent.position = networkState.posCabeza.Value;

@@ -69,7 +69,7 @@ public class GameplayManager : NetworkBehaviour
 
         Debug.Log("[SERVER] Bloque 4 Iniciado. Teletransportando jugadores locales y creando armas...");
 
-        // 1. Enviamos la orden a todos los clientes para que muevan su XR_Origin_LOCAL físico
+        // 1. Enviamos la orden a todos los clientes (Mueve la posición y activa los colores de los avatares)
         MoverJugadoresAPuntosClientRpc();
 
         // 2. El servidor crea las armas frente a los puntos de spawn correspondientes
@@ -77,13 +77,6 @@ public class GameplayManager : NetworkBehaviour
 
         // 3. Arrancamos los asteroides
         StartCoroutine(RutinaSpawn());
-
-        // Añadir al final de la función IniciarPartida() en GameplayManager.cs
-        var todosLosAvatares = FindObjectsByType<PlayerAvatarSync>(FindObjectsSortMode.None);
-        foreach (var avatar in todosLosAvatares)
-        {
-            if (avatar != null) avatar.ActivarVisibilidadEnPartida();
-        }
     }
 
     [ClientRpc]
@@ -93,15 +86,24 @@ public class GameplayManager : NetworkBehaviour
         GameObject miXR = GameObject.Find("XR_Origin_LOCAL");
         if (miXR != null)
         {
-            // Conseguimos el ID de este cliente para saber qué número de spawn le toca
             int miID = (int)NetworkManager.Singleton.LocalClientId;
 
-            // Evitamos errores de índice si hay más jugadores que puntos de spawn
             if (miID < puntosDeSpawnJugadores.Count)
             {
                 miXR.transform.position = puntosDeSpawnJugadores[miID].position;
                 miXR.transform.rotation = puntosDeSpawnJugadores[miID].rotation;
                 Debug.Log($"[CLIENTE] Teletransportado con éxito al punto de spawn: {miID}");
+            }
+        }
+
+        // 🌟 SOLUCIÓN CLIENTES MULTIJUGADOR: Forzamos a que todos los clientes y el host 
+        // despierten las mallas y pinten los colores de los avatares en sus propias pantallas al mismo tiempo
+        var todosLosAvatares = FindObjectsByType<PlayerAvatarSync>(FindObjectsSortMode.None);
+        foreach (var avatar in todosLosAvatares)
+        {
+            if (avatar != null)
+            {
+                avatar.ActivarVisibilidadEnPartida();
             }
         }
     }
