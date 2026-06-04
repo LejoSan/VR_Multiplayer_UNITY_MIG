@@ -58,10 +58,10 @@ public class NetcodeConfigUI : MonoBehaviour
         }
 
         // 1. Extraemos y validamos la IP
-        string nuevaIP = inputFieldIP != null ? inputFieldIP.text.Trim() : "127.0.0.1";
+        string nuevaIP = inputFieldIP != null ? inputFieldIP.text.Trim() : "0.0.0.0";
 
         // 2. Extraemos y validamos el Puerto (convertimos el texto a número seguro ushort)
-        ushort nuevoPuerto = 7777; // Puerto por defecto de Netcode
+        ushort nuevoPuerto = 7778; // Puerto por defecto de Netcode
         if (inputFieldPuerto != null && ushort.TryParse(inputFieldPuerto.text.Trim(), out ushort puertoParseado))
         {
             nuevoPuerto = puertoParseado;

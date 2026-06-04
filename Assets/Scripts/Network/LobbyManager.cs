@@ -29,8 +29,9 @@ public class LobbyManager : NetworkBehaviour
     public TextMeshProUGUI textoListaJugadores;
 
     [Header("--- NUMERO DE LA IP / ORDENADOR - VR HEADSET ---")]
+    [Tooltip("Si usas el panel dinámico con teclado, puedes dejar esto vacío.")]
     public string Ipnumero = "";
-    public ushort Puerto;
+    public ushort Puerto = 7778;
 
 
     // Variables de red para sincronizar los colores (999 = Color Libre)
@@ -83,11 +84,20 @@ public class LobbyManager : NetworkBehaviour
             UnityTransport transport = NetworkManager.Singleton.GetComponent<UnityTransport>();
             if (transport != null)
             {
-                // PON AQUÍ LA IP DE TU ORDENADOR (La que te dio el comando ipconfig)
-                transport.ConnectionData.Address = Ipnumero;
+                // 🌟 ESCUDO MULTIJUGADOR DIÁMICO:
+                // Si la IP del transporte sigue siendo la de fábrica (127.0.0.1 o vacía), significa que no usamos el teclado virtual.
+                // En ese caso, aplicamos la IP por defecto de las variables de este script como respaldo.
+                if (transport.ConnectionData.Address == "127.0.0.1" || string.IsNullOrEmpty(transport.ConnectionData.Address))
+                {
+                    if (!string.IsNullOrEmpty(Ipnumero)) transport.ConnectionData.Address = Ipnumero;
+                    if (Puerto != 0) transport.ConnectionData.Port = Puerto;
+                }
 
-                // Asegúrate de que el puerto coincide con el que guardamos en el NetworkManager (7778 o 7777)
-                transport.ConnectionData.Port = Puerto;
+                // Sincronizamos las variables locales de este script para que muestren la IP real que se está usando
+                Ipnumero = transport.ConnectionData.Address;
+                Puerto = transport.ConnectionData.Port;
+
+                Debug.Log($"<color=cyan><b>[LOBBY]</b></color> Intentando conectar al Servidor en la dirección -> IP: {Ipnumero} | Puerto: {Puerto}");
             }
         }
 
@@ -273,7 +283,6 @@ public class LobbyManager : NetworkBehaviour
         if (!IsServer) return;
         CerrarLobbyEnTodosLosClientesClientRpc();
 
-        // ¡NUEVA LÍNEA AÑADIDA AQUÍ!
         if (MainGameManager.Instance != null) MainGameManager.Instance.IniciarExperienciaDesdeLobby();
     }
 
@@ -284,7 +293,6 @@ public class LobbyManager : NetworkBehaviour
         Debug.Log("Lobby cerrado. ¡Comienza la experiencia!");
     }
 
-    // Método de consulta para saber qué color le pertenece a cada ID de red
     public Color ObtenerColorPorID(ulong idJugador)
     {
         if (dueñoRojo.Value == idJugador) return Color.red;
