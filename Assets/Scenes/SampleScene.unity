@@ -429,7 +429,7 @@ MonoBehaviour:
   btnIniciarPartida: {fileID: 1209228760}
   textoEstadoEspera: {fileID: 54601158}
   textoListaJugadores: {fileID: 500881528}
-  Ipnumero: 192.168.20.112
+  Ipnumero: 192.168.20.152
   Puerto: 7778
 --- !u!4 &63160075
 Transform:
@@ -1781,7 +1781,7 @@ Transform:
   m_GameObject: {fileID: 461370790}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 1.3614397, z: -1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []

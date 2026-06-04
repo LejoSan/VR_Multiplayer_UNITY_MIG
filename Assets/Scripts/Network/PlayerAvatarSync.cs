@@ -8,8 +8,8 @@ public class PlayerAvatarSync : NetworkBehaviour
     public Renderer mallaTorsoCuerpo;
 
     [Header("Referencias Locales para Movimiento")]
-    public Transform avatarHeadParent; // Nodo HeadCalibration
-    public Transform avatarTorsoParent; // Nodo TorsoCalibration
+    public Transform avatarHeadParent;  // Asigna aquí el nodo HeadCalibration
+    public Transform avatarTorsoParent; // Asigna aquí el nodo TorsoCalibration
     public Transform avatarLeftHand;
     public Transform avatarRightHand;
 
@@ -67,6 +67,14 @@ public class PlayerAvatarSync : NetworkBehaviour
                 else mallaTorsoCuerpo.material.color = colorAsignado;
             }
         }
+
+        // Al jugar, ocultamos tu propio modelo local para despejar la vista de tus gafas.
+        // Los demás usuarios de la sesión de red SÍ te verán con tu color y movimientos corporales.
+        //if (IsOwner)
+        //{
+        //    if (mallaCabezaCompleta != null) mallaCabezaCompleta.enabled = false;
+        //    if (mallaTorsoCuerpo != null) mallaTorsoCuerpo.enabled = false;
+        //}
     }
 
     private void CambiarVisibilidadAvatar(bool visible)
@@ -86,18 +94,26 @@ public class PlayerAvatarSync : NetworkBehaviour
         {
             if (localHead)
             {
+                // La raíz del objeto se acopla a la posición real del visor
                 transform.position = localHead.position;
-                transform.rotation = localHead.rotation;
+
+                // 🌟 ALINEACIÓN REAL: La cabeza copia la posición global, pero mantiene su rotación local correctiva limpia
+                if (avatarHeadParent)
+                {
+                    avatarHeadParent.position = localHead.position;
+                    avatarHeadParent.rotation = localHead.rotation;
+                }
+
+                // El torso sigue a la cabeza hacia abajo, pero solo gira en el eje Y (evita que el cuerpo se incline al mirar arriba/abajo)
+                if (avatarTorsoParent)
+                {
+                    Vector3 posTorso = localHead.position - new Vector3(0, 0.4f, 0);
+                    avatarTorsoParent.position = posTorso;
+                    avatarTorsoParent.rotation = Quaternion.Euler(0, localHead.eulerAngles.y, 0);
+                }
 
                 networkState.posCabeza.Value = localHead.position;
                 networkState.rotCabeza.Value = localHead.rotation;
-            }
-
-            if (avatarTorsoParent && localHead)
-            {
-                Vector3 posTorso = localHead.position - new Vector3(0, 0.4f, 0);
-                avatarTorsoParent.position = posTorso;
-                avatarTorsoParent.rotation = Quaternion.Euler(0, localHead.eulerAngles.y, 0);
             }
 
             if (localLeftHand && avatarLeftHand)
@@ -118,9 +134,12 @@ public class PlayerAvatarSync : NetworkBehaviour
         }
         else
         {
-            // Sincronización en pantallas de otros jugadores
-            transform.position = networkState.posCabeza.Value;
-            transform.rotation = networkState.rotCabeza.Value;
+            // Réplica autoritaria para los compañeros de la sala multijugador
+            if (avatarHeadParent)
+            {
+                avatarHeadParent.position = networkState.posCabeza.Value;
+                avatarHeadParent.rotation = networkState.rotCabeza.Value;
+            }
 
             if (avatarTorsoParent)
             {
