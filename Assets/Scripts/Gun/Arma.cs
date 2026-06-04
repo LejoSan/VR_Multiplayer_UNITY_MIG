@@ -3,7 +3,6 @@ using UnityEngine.XR.Interaction.Toolkit;
 using UnityEngine.XR.Interaction.Toolkit.Interactables;
 using Unity.Netcode;
 
-// ¡Atención! Ahora hereda de NetworkBehaviour
 public class Arma : NetworkBehaviour
 {
     [Header("Configuración de Disparo")]
@@ -34,45 +33,57 @@ public class Arma : NetworkBehaviour
 
     private void DispararConGatillo(ActivateEventArgs arg)
     {
-        // Solo el jugador que tiene el arma en la mano puede ejecutar el disparo
         Shoot();
     }
 
     public void Shoot()
     {
-        // 1. Sonido y efectos locales (para que se sienta instantáneo sin lag)
         if (audioDisparo && sonidoClip) audioDisparo.PlayOneShot(sonidoClip);
         else if (audioDisparo) audioDisparo.Play();
 
-        // 2. Calcular rotación con dispersión
         Quaternion rotacionConRuido = puntaDelArma.rotation;
         rotacionConRuido *= Quaternion.Euler(Random.Range(-dispersion, dispersion), Random.Range(-dispersion, dispersion), 0);
         Quaternion rotacionCorregida = rotacionConRuido * Quaternion.Euler(90, 0, 0);
 
-        // 3. Avisar al servidor para que cree el láser oficial en la red
         ulong miID = NetworkManager.Singleton.LocalClientId;
         DispararServerRpc(miID, puntaDelArma.position, rotacionCorregida);
     }
+
     [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Everyone)]
     private void DispararServerRpc(ulong idTirador, Vector3 posicion, Quaternion rotacion)
     {
-        // 1. El servidor crea el objeto físico localmente
+        // 1. Instanciamos el prefab de la bala (pa maestra)
         GameObject nuevoLaser = Instantiate(prefabLaser, posicion, rotacion);
 
-        // 2. Buscamos el NetworkObject en la raíz o en los hijos
-        NetworkObject netObj = nuevoLaser.GetComponentInParent<NetworkObject>() ?? nuevoLaser.GetComponentInChildren<NetworkObject>();
+        Debug.Log($"<color=magenta><b>[DEBUG ARMA]</b></color> Servidor ejecuta disparo. ID del tirador enviado: {idTirador}");
 
+        // 2. 🌟 EL BARREDO TOTAL: Buscamos TODOS los scripts LaserBolt en la raíz y en los hijos (activos o no)
+        LaserBolt[] todosLosScriptsLaser = nuevoLaser.GetComponentsInChildren<LaserBolt>(true);
+
+        Debug.Log($"<color=yellow><b>[DEBUG ARMA]</b></color> Se detectaron {todosLosScriptsLaser.Length} instancias del script LaserBolt en este objeto.");
+
+        foreach (LaserBolt scriptLaser in todosLosScriptsLaser)
+        {
+            if (scriptLaser != null)
+            {
+                scriptLaser.idDueñoServidor = idTirador; // Se lo inyectamos a todos por seguridad
+            }
+        }
+
+        // 3. Spawneamos el objeto en la red de forma legal
+        NetworkObject netObj = nuevoLaser.GetComponent<NetworkObject>() ?? nuevoLaser.GetComponentInChildren<NetworkObject>();
         if (netObj != null)
         {
-            // 🔥 ¡PRIMERO SPAWNEAMOS! Ahora el objeto ya vive oficialmente en la red
             netObj.Spawn();
         }
 
-        // 3. ¡AHORA SÍ! Modificamos la NetworkVariable de forma segura sin advertencias
-        LaserBolt scriptLaser = nuevoLaser.GetComponentInChildren<LaserBolt>();
-        if (scriptLaser != null)
+        // 4. Sincronizamos la NetworkVariable de red en todas las copias para los clientes
+        foreach (LaserBolt scriptLaser in todosLosScriptsLaser)
         {
-            scriptLaser.idDueño.Value = idTirador;
+            if (scriptLaser != null)
+            {
+                scriptLaser.idDueño.Value = idTirador;
+            }
         }
     }
 }

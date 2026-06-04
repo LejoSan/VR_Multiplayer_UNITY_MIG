@@ -256,36 +256,28 @@ public class MainGameManager : NetworkBehaviour
 
         // 2. Ordenamos el podio por puntuación de mayor a menor leyendo desde PlayerAvatarSync
         var jugadoresOrdenados = listaJugadoresValidos.OrderByDescending(c => {
-            PlayerAvatarSync estado = c.PlayerObject.GetComponent<PlayerAvatarSync>();
+            PlayerNetworkState estado = c.PlayerObject.GetComponent<PlayerNetworkState>();
             return estado != null ? estado.puntuacion.Value : 0;
         }).ToList();
 
-        // 3. Recorremos los puestos aplicando la lógica exacta de tu LobbyManager
         int puesto = 1;
         foreach (var cliente in jugadoresOrdenados)
         {
-            PlayerAvatarSync estado = cliente.PlayerObject.GetComponent<PlayerAvatarSync>();
+            PlayerNetworkState estado = cliente.PlayerObject.GetComponent<PlayerNetworkState>();
             if (estado != null)
             {
                 string nombreColorTexto = "VR";
                 string colorTag = "white";
 
-                // 🌟 LA REGLA SOBERANA: Consultamos la base de datos exacta de tu LobbyManager activo
                 if (LobbyManager.Instance != null)
                 {
                     Color colorRealDelJugador = LobbyManager.Instance.ObtenerColorPorID(cliente.ClientId);
-
-                    // Mapeamos los colores con tus mismos nombres y tags de la UI del Lobby
                     if (colorRealDelJugador == Color.red) { colorTag = "red"; nombreColorTexto = "Rojo"; }
                     else if (colorRealDelJugador == Color.blue) { colorTag = "blue"; nombreColorTexto = "Azul"; }
                     else if (colorRealDelJugador == Color.green) { colorTag = "green"; nombreColorTexto = "Verde"; }
                     else if (colorRealDelJugador == Color.yellow) { colorTag = "yellow"; nombreColorTexto = "Amarillo"; }
                 }
 
-                // 🌟 TU DISEÑO LOGRADO: 
-                // - El cuadro "■" se escala ligeramente un poco más grande (<size=130%>) para que destaque.
-                // - Toma de forma estricta los strings de color nativos del Lobby (red, blue, green, yellow).
-                // - Todo el bloque de datos restante se mantiene en blanco puro e independiente.
                 podioText += $"<size=130%><color={colorTag}>■</color></size>  <color=white><b>Puesto {puesto}</b>  -  Jugador VR ({nombreColorTexto}):  <b>{estado.puntuacion.Value} pts</b></color>\n\n";
             }
             puesto++;

@@ -173,6 +173,13 @@ public class GameplayManager : NetworkBehaviour
 
     void SpawnObjetivoEnRed()
     {
+        // 🌟 SEGURO MULTIJUGADOR GLOBAL: Si el gestor de red está apagado o colapsado, abortamos para no congelar el juego
+        if (NetworkManager.Singleton == null || !NetworkManager.Singleton.IsListening)
+        {
+            Debug.LogWarning("[GAMEPLAY MANAGER] Esperando que el NetworkManager esté completamente activo...");
+            return;
+        }
+
         if (puntosDeSpawnAsteroides.Count == 0 || listaDeObjetivos.Length == 0) return;
 
         Transform puntoAleatorio = puntosDeSpawnAsteroides[Random.Range(0, puntosDeSpawnAsteroides.Count)];
@@ -180,19 +187,20 @@ public class GameplayManager : NetworkBehaviour
 
         if (asteroideElegido != null)
         {
-            // 🌟 COMPROBACIÓN PREVIA: Si el prefab original no tiene NetworkObject, ni siquiera lo instanciamos
+            // Comprobación previa del componente de red en el prefab original
             if (asteroideElegido.GetComponent<NetworkObject>() == null)
             {
-                Debug.LogError($"[GAMEPLAY MANAGER] ¡Alerta Crítica! El prefab '{asteroideElegido.name}' no tiene un componente NetworkObject. Asegúrate de ponérselo en el inspector y registrarlo en el NetworkManager.");
+                Debug.LogError($"[GAMEPLAY MANAGER] ¡Alerta Crítica! El prefab '{asteroideElegido.name}' no tiene un componente NetworkObject.");
                 return;
             }
 
             GameObject nuevoAsteroide = Instantiate(asteroideElegido, puntoAleatorio.position, puntoAleatorio.rotation);
 
-            // Buscamos de forma ultra-segura en la raíz o hijos
+            // Buscamos de forma ultra-segura el componente en el clon creado
             NetworkObject netObj = nuevoAsteroide.GetComponent<NetworkObject>() ?? nuevoAsteroide.GetComponentInChildren<NetworkObject>();
 
-            if (netObj != null && NetworkManager.Singleton.IsServer)
+            // 🌟 VALIDACIÓN DE SEGURIDAD: Verificamos de forma independiente que existan tanto el objeto como el servidor
+            if (netObj != null && NetworkManager.Singleton != null && NetworkManager.Singleton.IsServer)
             {
                 netObj.Spawn(true); // Spawnea de forma segura en toda la red
             }

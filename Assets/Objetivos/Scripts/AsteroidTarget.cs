@@ -77,7 +77,7 @@ public class AsteroidTarget : NetworkBehaviour
         }
     }
 
-    // --- FUNCIÓN DE IMPACTO EN RED ADAPTADA AL AVATAR UNIFICADO ---
+    // --- FUNCIÓN DE IMPACTO EN RED TOTALMENTE CORREGIDA ---
     public void RecibirDisparoEnRed(ulong idTirador)
     {
         if (!IsServer) return; // Control de seguridad obligatorio: Solo el servidor altera variables de red
@@ -94,27 +94,27 @@ public class AsteroidTarget : NetworkBehaviour
             Debug.Log($"<color=yellow><b>[SISTEMA MODULAR]</b></color> Detectado '{datosModulares.nombreAsteroide}'. Puntos a otorgar: {datosModulares.puntosAlDestruir}");
         }
 
-        // 🌟 CAMBIO CLAVE: Cambiamos el tipo de variable al script unificado que sí está en la escena
-        PlayerAvatarSync estadoJugador = null;
+        // 🌟 SOLUCIÓN AL ERROR CS1061: Apuntamos al script correcto que guarda la puntuación (PlayerNetworkState)
+        PlayerNetworkState estadoJugador = null;
 
-        // Escaneamos todos los avatares activos en el mapa usando el nuevo componente
-        PlayerAvatarSync[] todosLosAvatares = FindObjectsByType<PlayerAvatarSync>(FindObjectsSortMode.None);
+        // Escaneamos todos los contenedores de estado activos en el mapa
+        PlayerNetworkState[] todosLosEstados = FindObjectsByType<PlayerNetworkState>(FindObjectsSortMode.None);
 
-        Debug.Log($"<color=orange><b>[AUDITORÍA DE RED]</b></color> Escaneando escena... Se encontraron {todosLosAvatares.Length} scripts PlayerAvatarSync en el mapa.");
+        Debug.Log($"<color=orange><b>[AUDITORÍA DE RED]</b></color> Escaneando escena... Se encontraron {todosLosEstados.Length} scripts PlayerNetworkState en el mapa.");
 
-        foreach (var avatar in todosLosAvatares)
+        foreach (var estado in todosLosEstados)
         {
-            // Este log te reportará los IDs reales de los avatares sincronizados en partida
-            Debug.Log($"-> Avatar detectado en escena: Nombre: '{avatar.gameObject.name}' | OwnerClientId Real: {avatar.OwnerClientId} | IsOwner: {avatar.IsOwner}");
+            // Este log te reportará los IDs reales sincronizados en partida en el PlayerNetworkState
+            Debug.Log($"-> Estado de red detectado: Nombre: '{estado.gameObject.name}' | OwnerClientId Real: {estado.OwnerClientId} | IsOwner: {estado.IsOwner}");
 
-            if (avatar.OwnerClientId == idTirador)
+            if (estado.OwnerClientId == idTirador)
             {
-                estadoJugador = avatar;
+                estadoJugador = estado;
                 break;
             }
         }
 
-        // Si encontramos el avatar que disparó, le inyectamos los puntos de forma autoritaria
+        // Si encontramos el componente de red que administra los puntos, sumamos de forma autoritaria
         if (estadoJugador != null)
         {
             estadoJugador.ModificarPuntuacionServer(puntosASumar);
@@ -122,7 +122,7 @@ public class AsteroidTarget : NetworkBehaviour
         }
         else
         {
-            Debug.LogError($"[ERROR CRÍTICO] El Servidor detectó el disparo del ID {idTirador}, pero no hay ningún script PlayerAvatarSync en el mapa que coincida con ese OwnerClientId.");
+            Debug.LogError($"[ERROR CRÍTICO] El Servidor detectó el disparo del ID {idTirador}, pero no hay ningún script PlayerNetworkState en el mapa que coincida con ese OwnerClientId.");
         }
 
         // 2. Generamos la explosión visual y sonora en todos los clientes

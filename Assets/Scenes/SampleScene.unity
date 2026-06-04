@@ -430,7 +430,7 @@ MonoBehaviour:
   textoEstadoEspera: {fileID: 54601158}
   textoListaJugadores: {fileID: 500881528}
   Ipnumero: 192.168.20.112
-  Puerto: 7777
+  Puerto: 7778
 --- !u!4 &63160075
 Transform:
   m_ObjectHideFlags: 0
@@ -487,7 +487,7 @@ MonoBehaviour:
   m_DisconnectTimeoutMS: 30000
   ConnectionData:
     Address: 0.0.0.0
-    Port: 7777
+    Port: 7778
     ServerListenAddress: 0.0.0.0
   DebugSimulator:
     PacketDelayMS: 0
@@ -8381,8 +8381,8 @@ SceneRoots:
   m_ObjectHideFlags: 0
   m_Roots:
   - {fileID: 477856788}
-  - {fileID: 122278391}
   - {fileID: 830334439}
+  - {fileID: 122278391}
   - {fileID: 63160075}
   - {fileID: 1688462061}
   - {fileID: 457324747}

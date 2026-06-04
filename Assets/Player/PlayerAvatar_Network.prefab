@@ -75,6 +75,7 @@ GameObject:
   - component: {fileID: 4740631616655340692}
   - component: {fileID: 2122195865303495553}
   - component: {fileID: 3300075955404748281}
+  - component: {fileID: 8469266660011600939}
   - component: {fileID: 169988060530506918}
   m_Layer: 0
   m_Name: PlayerAvatar_Network
@@ -114,7 +115,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Unity.Netcode.Runtime::Unity.Netcode.NetworkObject
-  GlobalObjectIdHash: 3297624600
+  GlobalObjectIdHash: 1016214386
   InScenePlacedSourceGlobalObjectIdHash: 3297624600
   DeferredDespawnTick: 0
   Ownership: 1
@@ -140,6 +141,25 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PlayerAvatarSync
   ShowTopMostFoldoutHeaderGroup: 1
+  mallaCabezaCompleta: {fileID: 929663743630003393}
+  mallaTorsoCuerpo: {fileID: 404172684265554982}
+  avatarHeadParent: {fileID: 3793124247818561667}
+  avatarTorsoParent: {fileID: 6851671575255557870}
+  avatarLeftHand: {fileID: 8701567769748056279}
+  avatarRightHand: {fileID: 8379095320874542809}
+--- !u!114 &8469266660011600939
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3200560117185692230}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 39a6bc2e11ebb2a4095fe43bb6c69cb3, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::PlayerNetworkState
+  ShowTopMostFoldoutHeaderGroup: 1
   puntuacion:
     m_InternalValue: 0
   colorJugadorNet:
@@ -156,12 +176,12 @@ MonoBehaviour:
     m_InternalValue: {x: 0, y: 0, z: 0}
   rotManoDer:
     m_InternalValue: {x: 0, y: 0, z: 0, w: 1}
-  mallaCabezaCompleta: {fileID: 929663743630003393}
-  mallaTorsoCuerpo: {fileID: 404172684265554982}
-  avatarHeadParent: {fileID: 3938921341655114967}
-  avatarTorsoParent: {fileID: 8756738377997037671}
-  avatarLeftHand: {fileID: 8701567769748056279}
-  avatarRightHand: {fileID: 8379095320874542809}
+  multiplicadorPuntos:
+    m_InternalValue: 1
+  puedeDisparar:
+    m_InternalValue: 1
+  meshManoIzquierda: {fileID: 0}
+  meshManoDerecha: {fileID: 0}
 --- !u!114 &169988060530506918
 MonoBehaviour:
   m_ObjectHideFlags: 0
