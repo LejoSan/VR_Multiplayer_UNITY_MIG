@@ -84,20 +84,40 @@ public class PlayerAvatarSync : NetworkBehaviour
     }
 
     // Este método solo será invocado de forma oficial por el GameplayManager al iniciar el Bloque 4
+    //public void ActivarVisibilidadEnPartida()
+    //{
+    //    // 1. Aseguramos que los materiales tengan el color correcto
+    //    ActualizarColorMateriales();
+
+    //    // 2. ¡AHORA SÍ! Hacemos aparecer al robot oficialmente en el mapa
+    //    CambiarVisibilidadAvatar(true);
+
+    //    // 3. Tu propia restricción de vista VR en primera persona
+    //    //if (IsOwner)
+    //    //{
+    //    //    if (mallaCabezaCompleta != null) mallaCabezaCompleta.enabled = false;
+    //    //    if (mallaTorsoCuerpo != null) mallaTorsoCuerpo.enabled = false;
+    //    //}
+    //}
+
+    // Este método solo será invocado de forma oficial por el GameplayManager al iniciar el Bloque 4
     public void ActivarVisibilidadEnPartida()
     {
-        // 1. Aseguramos que los materiales tengan el color correcto
+        // 1. Aseguramos que los materiales tengan el color correcto para todos
         ActualizarColorMateriales();
 
-        // 2. ¡AHORA SÍ! Hacemos aparecer al robot oficialmente en el mapa
-        CambiarVisibilidadAvatar(true);
+        // 2. ¡AHORA SÍ! Hacemos aparecer a todos los robots en el mapa
+        CambiarVisibilidadAvatar(false);
 
-        // 3. Tu propia restricción de vista VR en primera persona
-        //if (IsOwner)
-        //{
-        //    if (mallaCabezaCompleta != null) mallaCabezaCompleta.enabled = false;
-        //    if (mallaTorsoCuerpo != null) mallaTorsoCuerpo.enabled = false;
-        //}
+        // 3. REGLA VR UNIVERSAL: Cada jugador se vuelve invisible para SÍ MISMO
+        // Esto hace que nadie vea su propia cabeza por dentro ni su torso, pero vea a todos los demás.
+        if (IsOwner)
+        {
+            if (mallaCabezaCompleta != null) mallaCabezaCompleta.enabled = false;
+            if (mallaTorsoCuerpo != null) mallaTorsoCuerpo.enabled = false;
+
+            Debug.Log("[VR] Ocultando mallas locales para el dueño del avatar. ¡Vista despejada para disparar!");
+        }
     }
 
     private void CambiarVisibilidadAvatar(bool visible)

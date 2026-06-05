@@ -30,7 +30,7 @@ public class LobbyManager : NetworkBehaviour
 
     [Header("--- NUMERO DE LA IP / ORDENADOR - VR HEADSET ---")]
     [Tooltip("Si usas el panel dinámico con teclado, puedes dejar esto vacío.")]
-    public string Ipnumero = "";
+    public string Ipnumero = "192.168.20.152";
     public ushort Puerto = 7778;
 
 
