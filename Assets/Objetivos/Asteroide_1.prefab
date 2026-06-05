@@ -128,7 +128,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::AsteroidData
   nombreAsteroide: "Asteroide B\xE1sico"
-  puntosAlDestruir: 100
+  puntosAlDestruir: 5
 --- !u!114 &2541309859034347347
 MonoBehaviour:
   m_ObjectHideFlags: 0
