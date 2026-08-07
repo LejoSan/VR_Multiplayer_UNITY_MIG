@@ -8,13 +8,19 @@ public class LobbyManager : NetworkBehaviour
 {
     public static LobbyManager Instance;
 
-    [Header("--- Paneles del Lobby Bloque 1 ---")]
-    public GameObject panelConexion;
-    public GameObject panelColores;
-    public GameObject panelEspera;
+    [Header("--- UI PANELS (QUEST VR) ---")]
+    public GameObject panelInicioSimplificado; // Nuevo panel con "JUGAR" y "CAMBIAR IP"
+    public GameObject panelDevModo;            // Panel antiguo (Host / Cliente)
+    public GameObject panelColores;            // Paso 2: Elección de color
+    public GameObject panelEspera;             // Paso 3: Lista de conectados
 
-    // ¡NUEVO! Referencia al maniquí para despertarlo
-    public GameObject xrLobbyManiqui;
+    [Header("--- UI MOBILE ADMIN ---")]
+    public GameObject canvasMobileAdmin;       // Canvas 2D (Screen Space - Overlay)
+    public Camera camaraEspectadoraMovil;      // Cámara 3D Espectadora
+
+    [Header("--- Elementos UI Inicio ---")]
+    public TextMeshProUGUI textoIPActual;      // Muestra la IP actual guardada
+    public GameObject panelTecladoIP;          // NonNativeKeyboard para emergencias
 
     [Header("--- Botones de Colores (Paso 2) ---")]
     public Button btnRojo;
@@ -28,21 +34,19 @@ public class LobbyManager : NetworkBehaviour
     public TextMeshProUGUI textoEstadoEspera;
     public TextMeshProUGUI textoListaJugadores;
 
-    [Header("--- NUMERO DE LA IP / ORDENADOR - VR HEADSET ---")]
-    [Tooltip("Si usas el panel dinámico con teclado, puedes dejar esto vacío.")]
-    public string Ipnumero = "192.168.20.152";
+    [Header("--- CONFIGURACIÓN DE RED ---")]
+    public string IpnumeroDefecto = "192.168.20.152";
     public ushort Puerto = 7778;
 
+    private string ipFinalTrabajo;
 
-    // Variables de red para sincronizar los colores (999 = Color Libre)
+    // Variables de red para sincronizar colores (999 = Libre)
     private NetworkVariable<ulong> dueñoRojo = new NetworkVariable<ulong>(999, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
     private NetworkVariable<ulong> dueñoAzul = new NetworkVariable<ulong>(999, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
     private NetworkVariable<ulong> dueñoVerde = new NetworkVariable<ulong>(999, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
     private NetworkVariable<ulong> dueñoAmarillo = new NetworkVariable<ulong>(999, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
 
     private int colorSeleccionadoLocal = -1;
-
-
 
     void Awake()
     {
@@ -52,22 +56,103 @@ public class LobbyManager : NetworkBehaviour
 
     void Start()
     {
-        // Forzar estado inicial de las pantallas de UI
-        panelConexion.SetActive(true);
-        panelColores.SetActive(false);
-        panelEspera.SetActive(false);
+        // 1. Cargar la IP guardada o usar la por defecto
+        ipFinalTrabajo = PlayerPrefs.GetString("SAVED_HOST_IP", IpnumeroDefecto);
+        ActualizarTextoIPUI();
+
+        // 2. Estado inicial de paneles
+        if (canvasMobileAdmin) canvasMobileAdmin.SetActive(false);
+        if (camaraEspectadoraMovil) camaraEspectadoraMovil.gameObject.SetActive(false);
+
+        panelInicioSimplificado.SetActive(true);
+        if (panelDevModo) panelDevModo.SetActive(false);
+        if (panelColores) panelColores.SetActive(false);
+        if (panelEspera) panelEspera.SetActive(false);
         if (btnContinuar != null) btnContinuar.interactable = false;
 
-        // Suscribir el filtro de entrada al NetworkManager de Unity 6
+        // Suscribir filtro de aprobación de red
         if (NetworkManager.Singleton != null)
         {
             NetworkManager.Singleton.ConnectionApprovalCallback = ApprovalCheck;
         }
     }
 
+    // === METODOS DE INICIO DE CONEXIÓN ===
 
-    // === PASO 1: LÓGICA DE CONEXIÓN LAN (CON PAYLOAD)
+    // Botón principal "JUGAR" de las Quest
+    public void BTN_UsuarioVR_JugarDirecto()
+    {
+        AplicarIPAlTransporte(ipFinalTrabajo);
+        EnviarIdentificacionDispositivo("VR");
+        NetworkManager.Singleton.StartClient();
+        IrAPanelColores();
+    }
 
+    // Botón del Móvil Admin (Host Operador)
+    public void BTN_IniciarHostAdminMovil()
+    {
+        // Desactivar XR Origin de VR en el móvil
+        GameObject miXR = GameObject.Find("XR_Origin_LOCAL");
+        if (miXR != null) miXR.SetActive(false);
+
+        // Activar vista 3D Espectadora y Canvas 2D
+        if (camaraEspectadoraMovil) camaraEspectadoraMovil.gameObject.SetActive(true);
+        if (canvasMobileAdmin) canvasMobileAdmin.SetActive(true);
+
+        // Ocultar paneles 3D del visor
+        panelInicioSimplificado.SetActive(false);
+        if (panelDevModo) panelDevModo.SetActive(false);
+
+        // Iniciar Host Servidor
+        EnviarIdentificacionDispositivo("ADMIN");
+        NetworkManager.Singleton.StartHost();
+    }
+
+    // Abrir menú Secreto Dev (Invocado desde VRSecretHostKey)
+    public void ActivarMenuModoDev()
+    {
+        if (panelInicioSimplificado) panelInicioSimplificado.SetActive(false);
+        if (panelDevModo) panelDevModo.SetActive(true);
+        Debug.Log("<color=yellow>[DEV MODE]</color> Panel secreto desbloqueado.");
+    }
+
+    // === GESTIÓN DE IP DE EMERGENCIA ===
+
+    public void GuardarNuevaIPDesdeTeclado(string nuevaIP)
+    {
+        if (string.IsNullOrEmpty(nuevaIP)) return;
+
+        ipFinalTrabajo = nuevaIP;
+        PlayerPrefs.SetString("SAVED_HOST_IP", ipFinalTrabajo);
+        PlayerPrefs.Save();
+
+        ActualizarTextoIPUI();
+        if (panelTecladoIP) panelTecladoIP.SetActive(false);
+    }
+
+    private void ActualizarTextoIPUI()
+    {
+        if (textoIPActual != null)
+        {
+            textoIPActual.text = $"IP Servidor: <color=yellow>{ipFinalTrabajo}</color>";
+        }
+    }
+
+    private void AplicarIPAlTransporte(string ip)
+    {
+        if (NetworkManager.Singleton != null)
+        {
+            UnityTransport transport = NetworkManager.Singleton.GetComponent<UnityTransport>();
+            if (transport != null)
+            {
+                transport.ConnectionData.Address = ip;
+                transport.ConnectionData.Port = Puerto;
+                Debug.Log($"<color=cyan>[RED]</color> Apuntando a IP: {ip}:{Puerto}");
+            }
+        }
+    }
+
+    // === MÉTODOS ORIGINALES MANTENIDOS ===
 
     public void BTN_IniciarHost()
     {
@@ -78,46 +163,10 @@ public class LobbyManager : NetworkBehaviour
 
     public void BTN_IniciarClienteVR()
     {
-        // 1. Accedemos de forma segura al componente de transporte de red
-        if (NetworkManager.Singleton != null)
-        {
-            UnityTransport transport = NetworkManager.Singleton.GetComponent<UnityTransport>();
-            if (transport != null)
-            {
-                // 🌟 ESCUDO MULTIJUGADOR DIÁMICO:
-                // Si la IP del transporte sigue siendo la de fábrica (127.0.0.1 o vacía), significa que no usamos el teclado virtual.
-                // En ese caso, aplicamos la IP por defecto de las variables de este script como respaldo.
-                if (transport.ConnectionData.Address == "127.0.0.1" || string.IsNullOrEmpty(transport.ConnectionData.Address))
-                {
-                    if (!string.IsNullOrEmpty(Ipnumero)) transport.ConnectionData.Address = Ipnumero;
-                    if (Puerto != 0) transport.ConnectionData.Port = Puerto;
-                }
-
-                // Sincronizamos las variables locales de este script para que muestren la IP real que se está usando
-                Ipnumero = transport.ConnectionData.Address;
-                Puerto = transport.ConnectionData.Port;
-
-                Debug.Log($"<color=cyan><b>[LOBBY]</b></color> Intentando conectar al Servidor en la dirección -> IP: {Ipnumero} | Puerto: {Puerto}");
-            }
-        }
-
-        // 2. Tu flujo original intacto
+        AplicarIPAlTransporte(ipFinalTrabajo);
         EnviarIdentificacionDispositivo("VR");
         NetworkManager.Singleton.StartClient();
         IrAPanelColores();
-    }
-
-    public void BTN_IniciarClienteAdminMovil()
-    {
-        // Función dedicada para tu futura App de Móvil
-        EnviarIdentificacionDispositivo("ADMIN");
-        NetworkManager.Singleton.StartClient();
-
-        // Al móvil no lo mandamos a elegir color, saltamos directo a su pantalla de control
-        panelConexion.SetActive(false);
-        panelEspera.SetActive(true);
-        btnIniciarPartida.SetActive(true); // El admin móvil sí podrá iniciar el juego
-        textoEstadoEspera.text = "Modo Administrador Activo.\nVisualizando sesión en tiempo real.";
     }
 
     private void EnviarIdentificacionDispositivo(string tipo)
@@ -126,47 +175,18 @@ public class LobbyManager : NetworkBehaviour
         NetworkManager.Singleton.NetworkConfig.ConnectionData = payload;
     }
 
-    // --- BOTÓN DE ATRÁS / DESCONEXIÓN ---
-    public void BTN_Atras_Desconectar()
-    {
-        // 1. Apagamos el motor de red y destruimos el cuerpo oficial
-        if (NetworkManager.Singleton != null)
-        {
-            NetworkManager.Singleton.Shutdown();
-        }
-
-        // 2. ¡Despertamos al maniquí para recuperar las manos y la cámara!
-        if (xrLobbyManiqui != null)
-        {
-            xrLobbyManiqui.SetActive(true);
-        }
-
-        // 3. Restauramos la UI
-        if (panelConexion) panelConexion.SetActive(true);
-        if (panelColores) panelColores.SetActive(false);
-        if (panelEspera) panelEspera.SetActive(false);
-    }
-    private void IrAPanelColores()
-    {
-        panelConexion.SetActive(false);
-        panelColores.SetActive(true);
-    }
-
-    // El "Guardia de Seguridad" del Servidor
     private void ApprovalCheck(NetworkManager.ConnectionApprovalRequest request, NetworkManager.ConnectionApprovalResponse response)
     {
         string tipoDispositivo = System.Text.Encoding.ASCII.GetString(request.Payload);
 
-        // Si es el Administrador Móvil, entra directo sin generar un avatar físico en el mapa
         if (tipoDispositivo == "ADMIN")
         {
             response.Approved = true;
-            response.CreatePlayerObject = false; // REGLA DE ORO: No le crea un XR Origin de VR
+            response.CreatePlayerObject = false;
             response.Pending = false;
             return;
         }
 
-        // Si es un visor VR, contamos cuántos visores reales (con avatar) hay dentro
         int visoresVR = 0;
         foreach (var client in NetworkManager.Singleton.ConnectedClientsList)
         {
@@ -181,17 +201,20 @@ public class LobbyManager : NetworkBehaviour
         else
         {
             response.Approved = true;
-            response.CreatePlayerObject = true; // A los visores SÍ les crea su XR Origin en red
+            response.CreatePlayerObject = true;
         }
         response.Pending = false;
     }
 
-
-    // === PASO 2: SELECCIÓN DE COLOR DE RED
+    private void IrAPanelColores()
+    {
+        panelInicioSimplificado.SetActive(false);
+        if (panelDevModo) panelDevModo.SetActive(false);
+        if (panelColores) panelColores.SetActive(true);
+    }
 
     public override void OnNetworkSpawn()
     {
-        // Escuchar cuando cambien los dueños de los colores para actualizar la UI de todos
         dueñoRojo.OnValueChanged += (oldVal, newVal) => AlCambiarLobby();
         dueñoAzul.OnValueChanged += (oldVal, newVal) => AlCambiarLobby();
         dueñoVerde.OnValueChanged += (oldVal, newVal) => AlCambiarLobby();
@@ -209,7 +232,7 @@ public class LobbyManager : NetworkBehaviour
     public void BTN_SeleccionarColor(int indiceColor)
     {
         colorSeleccionadoLocal = indiceColor;
-        if (btnContinuar != null) btnContinuar.interactable = true; // Ya puede avanzar
+        if (btnContinuar != null) btnContinuar.interactable = true;
         SolicitarColorServerRpc(indiceColor, NetworkManager.Singleton.LocalClientId);
     }
 
@@ -242,10 +265,6 @@ public class LobbyManager : NetworkBehaviour
         btnAmarillo.interactable = (dueñoAmarillo.Value == 999 || dueñoAmarillo.Value == miID);
     }
 
-
-    // === PASO 3: FEEDBACK Y SALA DE ESPERA
-
-
     private void ActualizarListaJugadoresUI()
     {
         if (textoListaJugadores == null) return;
@@ -263,18 +282,18 @@ public class LobbyManager : NetworkBehaviour
     {
         if (colorSeleccionadoLocal == -1) return;
 
-        panelColores.SetActive(false);
-        panelEspera.SetActive(true);
+        if (panelColores) panelColores.SetActive(false);
+        if (panelEspera) panelEspera.SetActive(true);
 
         if (IsServer)
         {
-            btnIniciarPartida.SetActive(true);
-            textoEstadoEspera.text = "Eres el HOST (Líder de la sala).";
+            if (btnIniciarPartida) btnIniciarPartida.SetActive(true);
+            if (textoEstadoEspera) textoEstadoEspera.text = "Eres el HOST (Líder de la sala).";
         }
         else
         {
-            btnIniciarPartida.SetActive(false);
-            textoEstadoEspera.text = "Esperando que el líder inicie la simulación...";
+            if (btnIniciarPartida) btnIniciarPartida.SetActive(false);
+            if (textoEstadoEspera) textoEstadoEspera.text = "Esperando que el operador inicie desde el móvil...";
         }
     }
 
@@ -289,8 +308,11 @@ public class LobbyManager : NetworkBehaviour
     [ClientRpc]
     private void CerrarLobbyEnTodosLosClientesClientRpc()
     {
-        gameObject.SetActive(false);
-        Debug.Log("Lobby cerrado. ¡Comienza la experiencia!");
+        if (panelInicioSimplificado) panelInicioSimplificado.SetActive(false);
+        if (panelDevModo) panelDevModo.SetActive(false);
+        if (panelColores) panelColores.SetActive(false);
+        if (panelEspera) panelEspera.SetActive(false);
+        Debug.Log("Lobby cerrado con éxito.");
     }
 
     public Color ObtenerColorPorID(ulong idJugador)
