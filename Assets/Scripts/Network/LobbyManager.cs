@@ -125,10 +125,18 @@ public class LobbyManager : NetworkBehaviour
     {
         ReiniciarRedYEjecutar(() =>
         {
+            // Apagamos VR
             GameObject miXR = GameObject.Find("XR_Origin_LOCAL");
             if (miXR != null) miXR.SetActive(false);
 
-            if (camaraEspectadoraMovil) camaraEspectadoraMovil.gameObject.SetActive(true);
+            // Activamos Cámara Espectadora y su script de Controles Táctiles
+            if (camaraEspectadoraMovil)
+            {
+                camaraEspectadoraMovil.gameObject.SetActive(true);
+                MobileSpectatorCamera scriptCam = camaraEspectadoraMovil.GetComponent<MobileSpectatorCamera>();
+                if (scriptCam != null) scriptCam.enabled = true;
+            }
+
             if (canvasMobileAdmin) canvasMobileAdmin.SetActive(true);
 
             if (panelInicioSimplificado) panelInicioSimplificado.SetActive(false);
@@ -147,8 +155,6 @@ public class LobbyManager : NetworkBehaviour
                                                 $"IP LAN: <color=yellow><b>{miIP}</b></color> | Puerto: {Puerto}\n\n" +
                                                 $"<i>Las Meta Quest deben conectarse a esta IP.</i>";
             }
-
-            Debug.Log($"<color=green>[HOST ADMIN]</color> Servidor iniciado con éxito en IP local: {miIP}");
         });
     }
 
@@ -387,12 +393,22 @@ public class LobbyManager : NetworkBehaviour
         }
     }
 
+    // Invocado al pulsar "INICIAR SIMULACIÓN"
     public void BTN_HostIniciarJuego()
     {
         if (!IsServer) return;
+
+        // 1. Ocultar la interfaz del dashboard en la pantalla del móvil para dejar la vista 3D limpia
+        if (panelMovilDashboard != null) panelMovilDashboard.SetActive(false);
+        if (canvasMobileAdmin != null) canvasMobileAdmin.SetActive(false);
+
+        // 2. Avisar a las Meta Quest de que arranquen la simulación
         CerrarLobbyEnTodosLosClientesClientRpc();
 
+        // 3. Arrancar la lógica principal del juego
         if (MainGameManager.Instance != null) MainGameManager.Instance.IniciarExperienciaDesdeLobby();
+
+        Debug.Log("<color=green>[SIMULACIÓN]</color> Partida iniciada por el Operador. Pantalla limpia para la vista espectadora.");
     }
 
     [ClientRpc]
