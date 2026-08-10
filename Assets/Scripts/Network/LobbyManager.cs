@@ -9,18 +9,21 @@ public class LobbyManager : NetworkBehaviour
     public static LobbyManager Instance;
 
     [Header("--- UI PANELS (QUEST VR) ---")]
-    public GameObject panelInicioSimplificado; // Nuevo panel con "JUGAR" y "CAMBIAR IP"
-    public GameObject panelDevModo;            // Panel antiguo (Host / Cliente)
-    public GameObject panelColores;            // Paso 2: Elección de color
-    public GameObject panelEspera;             // Paso 3: Lista de conectados
+    public GameObject panelInicioSimplificado;
+    public GameObject panelDevModo;
+    public GameObject panelColores;
+    public GameObject panelEspera;
 
     [Header("--- UI MOBILE ADMIN ---")]
-    public GameObject canvasMobileAdmin;       // Canvas 2D (Screen Space - Overlay)
-    public Camera camaraEspectadoraMovil;      // Cámara 3D Espectadora
+    public GameObject canvasMobileAdmin;
+    public Camera camaraEspectadoraMovil;
+    public GameObject panelMovilBotonInicio;
+    public GameObject panelMovilDashboard;
+    public TextMeshProUGUI textoEstadoServidorMovil;
 
     [Header("--- Elementos UI Inicio ---")]
-    public TextMeshProUGUI textoIPActual;      // Muestra la IP actual guardada
-    public GameObject panelTecladoIP;          // NonNativeKeyboard para emergencias
+    public TextMeshProUGUI textoIPActual;
+    public GameObject panelTecladoIP;
 
     [Header("--- Botones de Colores (Paso 2) ---")]
     public Button btnRojo;
@@ -56,67 +59,133 @@ public class LobbyManager : NetworkBehaviour
 
     void Start()
     {
-        // 1. Cargar la IP guardada o usar la por defecto
         ipFinalTrabajo = PlayerPrefs.GetString("SAVED_HOST_IP", IpnumeroDefecto);
         ActualizarTextoIPUI();
 
-        // 2. Estado inicial de paneles
         if (canvasMobileAdmin) canvasMobileAdmin.SetActive(false);
         if (camaraEspectadoraMovil) camaraEspectadoraMovil.gameObject.SetActive(false);
 
-        panelInicioSimplificado.SetActive(true);
+        if (panelInicioSimplificado) panelInicioSimplificado.SetActive(true);
         if (panelDevModo) panelDevModo.SetActive(false);
         if (panelColores) panelColores.SetActive(false);
         if (panelEspera) panelEspera.SetActive(false);
         if (btnContinuar != null) btnContinuar.interactable = false;
 
-        // Suscribir filtro de aprobación de red
         if (NetworkManager.Singleton != null)
         {
             NetworkManager.Singleton.ConnectionApprovalCallback = ApprovalCheck;
         }
     }
 
-    // === METODOS DE INICIO DE CONEXIÓN ===
+    // === PROTECCIÓN DE RED: LIMPIEZA PREVIA DE SESIONES ===
 
-    // Botón principal "JUGAR" de las Quest
+    private void ReiniciarRedYEjecutar(System.Action accionInicio)
+    {
+        StartCoroutine(RutinaReiniciarRed(accionInicio));
+    }
+
+    private System.Collections.IEnumerator RutinaReiniciarRed(System.Action accionInicio)
+    {
+        // 1. Si la red está activa, ordenamos apagar
+        if (NetworkManager.Singleton != null && NetworkManager.Singleton.IsListening)
+        {
+            Debug.Log("<color=yellow>[RED]</color> Apagando sesión previa para reiniciar red limpiamente...");
+            NetworkManager.Singleton.Shutdown();
+
+            // 2. Esperamos a que Netcode termine de liberar los puertos en memoria
+            while (NetworkManager.Singleton.IsListening)
+            {
+                yield return null;
+            }
+
+            // 3. Pausa de seguridad de 0.2 segundos
+            yield return new WaitForSeconds(0.2f);
+        }
+
+        // 4. Ejecutamos la nueva conexión (StartClient / StartHost)
+        accionInicio?.Invoke();
+    }
+
+    // === MÉTODOS DE INICIO DE CONEXIÓN ===
+
+    // 1. Botón principal "JUGAR" (Pantalla simplificada VR)
     public void BTN_UsuarioVR_JugarDirecto()
     {
-        AplicarIPAlTransporte(ipFinalTrabajo);
-        EnviarIdentificacionDispositivo("VR");
-        NetworkManager.Singleton.StartClient();
-        IrAPanelColores();
+        ReiniciarRedYEjecutar(() =>
+        {
+            AplicarIPAlTransporte(ipFinalTrabajo);
+            EnviarIdentificacionDispositivo("VR");
+            NetworkManager.Singleton.StartClient();
+            IrAPanelColores();
+        });
     }
 
-    // Botón del Móvil Admin (Host Operador)
+    // 2. Botón "INICIAR SERVIDOR OPERADOR" (Móvil Admin)
     public void BTN_IniciarHostAdminMovil()
     {
-        // Desactivar XR Origin de VR en el móvil
-        GameObject miXR = GameObject.Find("XR_Origin_LOCAL");
-        if (miXR != null) miXR.SetActive(false);
+        ReiniciarRedYEjecutar(() =>
+        {
+            GameObject miXR = GameObject.Find("XR_Origin_LOCAL");
+            if (miXR != null) miXR.SetActive(false);
 
-        // Activar vista 3D Espectadora y Canvas 2D
-        if (camaraEspectadoraMovil) camaraEspectadoraMovil.gameObject.SetActive(true);
-        if (canvasMobileAdmin) canvasMobileAdmin.SetActive(true);
+            if (camaraEspectadoraMovil) camaraEspectadoraMovil.gameObject.SetActive(true);
+            if (canvasMobileAdmin) canvasMobileAdmin.SetActive(true);
 
-        // Ocultar paneles 3D del visor
-        panelInicioSimplificado.SetActive(false);
-        if (panelDevModo) panelDevModo.SetActive(false);
+            if (panelInicioSimplificado) panelInicioSimplificado.SetActive(false);
+            if (panelDevModo) panelDevModo.SetActive(false);
 
-        // Iniciar Host Servidor
-        EnviarIdentificacionDispositivo("ADMIN");
-        NetworkManager.Singleton.StartHost();
+            if (panelMovilBotonInicio) panelMovilBotonInicio.SetActive(false);
+            if (panelMovilDashboard) panelMovilDashboard.SetActive(true);
+
+            EnviarIdentificacionDispositivo("ADMIN");
+            NetworkManager.Singleton.StartHost();
+
+            string miIP = ObtenerIPLocalLAN();
+            if (textoEstadoServidorMovil != null)
+            {
+                textoEstadoServidorMovil.text = $"<color=green><b>● SERVIDOR OPERADOR ACTIVO</b></color>\n" +
+                                                $"IP LAN: <color=yellow><b>{miIP}</b></color> | Puerto: {Puerto}\n\n" +
+                                                $"<i>Las Meta Quest deben conectarse a esta IP.</i>";
+            }
+
+            Debug.Log($"<color=green>[HOST ADMIN]</color> Servidor iniciado con éxito en IP local: {miIP}");
+        });
     }
 
-    // Abrir menú Secreto Dev (Invocado desde VRSecretHostKey)
-    public void ActivarMenuModoDev()
+    // 3. Botón "HOST" del Panel Dev Secreto
+    public void BTN_IniciarHost()
     {
-        if (panelInicioSimplificado) panelInicioSimplificado.SetActive(false);
-        if (panelDevModo) panelDevModo.SetActive(true);
-        Debug.Log("<color=yellow>[DEV MODE]</color> Panel secreto desbloqueado.");
+        ReiniciarRedYEjecutar(() =>
+        {
+            EnviarIdentificacionDispositivo("VR");
+            NetworkManager.Singleton.StartHost();
+            IrAPanelColores();
+        });
     }
 
-    // === GESTIÓN DE IP DE EMERGENCIA ===
+    // 4. Botón "CLIENTE" del Panel Dev Secreto
+    public void BTN_IniciarClienteVR()
+    {
+        ReiniciarRedYEjecutar(() =>
+        {
+            AplicarIPAlTransporte(ipFinalTrabajo);
+            EnviarIdentificacionDispositivo("VR");
+            NetworkManager.Singleton.StartClient();
+            IrAPanelColores();
+        });
+    }
+
+    public void ActualizarTextoIPEnPantalla(string ip)
+    {
+        ipFinalTrabajo = ip;
+        ActualizarTextoIPUI();
+    }
+
+    public void ActualizarTextoIPUIExterno(string nuevaIP)
+    {
+        ipFinalTrabajo = nuevaIP;
+        ActualizarTextoIPUI();
+    }
 
     public void GuardarNuevaIPDesdeTeclado(string nuevaIP)
     {
@@ -152,22 +221,33 @@ public class LobbyManager : NetworkBehaviour
         }
     }
 
-    // === MÉTODOS ORIGINALES MANTENIDOS ===
-
-    public void BTN_IniciarHost()
+    private string ObtenerIPLocalLAN()
     {
-        EnviarIdentificacionDispositivo("VR");
-        NetworkManager.Singleton.StartHost();
-        IrAPanelColores();
+        try
+        {
+            var host = System.Net.Dns.GetHostEntry(System.Net.Dns.GetHostName());
+            foreach (var ip in host.AddressList)
+            {
+                if (ip.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork)
+                {
+                    return ip.ToString();
+                }
+            }
+        }
+        catch { }
+        return "127.0.0.1";
     }
 
-    public void BTN_IniciarClienteVR()
+    // === PANEL DEV SECRETO ===
+
+    public void ActivarMenuModoDev()
     {
-        AplicarIPAlTransporte(ipFinalTrabajo);
-        EnviarIdentificacionDispositivo("VR");
-        NetworkManager.Singleton.StartClient();
-        IrAPanelColores();
+        if (panelInicioSimplificado) panelInicioSimplificado.SetActive(false);
+        if (panelDevModo) panelDevModo.SetActive(true);
+        Debug.Log("<color=yellow>[DEV MODE]</color> Panel secreto desbloqueado.");
     }
+
+    // === CONFIGURACIÓN Y APROBACIÓN NETCODE ===
 
     private void EnviarIdentificacionDispositivo(string tipo)
     {
@@ -208,7 +288,7 @@ public class LobbyManager : NetworkBehaviour
 
     private void IrAPanelColores()
     {
-        panelInicioSimplificado.SetActive(false);
+        if (panelInicioSimplificado) panelInicioSimplificado.SetActive(false);
         if (panelDevModo) panelDevModo.SetActive(false);
         if (panelColores) panelColores.SetActive(true);
     }
@@ -229,8 +309,16 @@ public class LobbyManager : NetworkBehaviour
         ActualizarListaJugadoresUI();
     }
 
+    // === SELECCIÓN DE COLORES Y RPCs ===
+
     public void BTN_SeleccionarColor(int indiceColor)
     {
+        if (!IsSpawned || NetworkManager.Singleton == null || (!NetworkManager.Singleton.IsConnectedClient && !IsServer))
+        {
+            Debug.LogWarning("<color=yellow>[ALERTA RED]</color> No estás conectado a ningún Host/Servidor activo.");
+            return;
+        }
+
         colorSeleccionadoLocal = indiceColor;
         if (btnContinuar != null) btnContinuar.interactable = true;
         SolicitarColorServerRpc(indiceColor, NetworkManager.Singleton.LocalClientId);
@@ -259,10 +347,10 @@ public class LobbyManager : NetworkBehaviour
     {
         ulong miID = NetworkManager.Singleton != null ? NetworkManager.Singleton.LocalClientId : 0;
 
-        btnRojo.interactable = (dueñoRojo.Value == 999 || dueñoRojo.Value == miID);
-        btnAzul.interactable = (dueñoAzul.Value == 999 || dueñoAzul.Value == miID);
-        btnVerde.interactable = (dueñoVerde.Value == 999 || dueñoVerde.Value == miID);
-        btnAmarillo.interactable = (dueñoAmarillo.Value == 999 || dueñoAmarillo.Value == miID);
+        if (btnRojo) btnRojo.interactable = (dueñoRojo.Value == 999 || dueñoRojo.Value == miID);
+        if (btnAzul) btnAzul.interactable = (dueñoAzul.Value == 999 || dueñoAzul.Value == miID);
+        if (btnVerde) btnVerde.interactable = (dueñoVerde.Value == 999 || dueñoVerde.Value == miID);
+        if (btnAmarillo) btnAmarillo.interactable = (dueñoAmarillo.Value == 999 || dueñoAmarillo.Value == miID);
     }
 
     private void ActualizarListaJugadoresUI()
@@ -277,6 +365,8 @@ public class LobbyManager : NetworkBehaviour
 
         textoListaJugadores.text = listaText;
     }
+
+    // === AVANCE A SALA DE ESPERA E INICIO DE JUEGO ===
 
     public void BTN_ContinuarAPanelEspera()
     {
@@ -312,7 +402,6 @@ public class LobbyManager : NetworkBehaviour
         if (panelDevModo) panelDevModo.SetActive(false);
         if (panelColores) panelColores.SetActive(false);
         if (panelEspera) panelEspera.SetActive(false);
-        Debug.Log("Lobby cerrado con éxito.");
     }
 
     public Color ObtenerColorPorID(ulong idJugador)

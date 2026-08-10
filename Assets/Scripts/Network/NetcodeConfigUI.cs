@@ -1,79 +1,116 @@
-using UnityEngine;
+Ôªøusing UnityEngine;
 using TMPro;
 using Unity.Netcode;
-using Unity.Netcode.Transports.UTP; // Requerido para modificar el UnityTransport
+using Unity.Netcode.Transports.UTP;
 
 public class NetcodeConfigUI : MonoBehaviour
 {
     [Header("--- Componentes de la Interfaz (UI) ---")]
-    public GameObject panelIP;                 // El contenedor de la UI de configuraciÛn
+    public GameObject panelIP;                  // El contenedor de la UI de configuraci√≥n
     public TMP_InputField inputFieldIP;         // Casilla para escribir la IP
     public TMP_InputField inputFieldPuerto;     // Casilla para escribir el Puerto
+
+    [Header("--- Valores por Defecto ---")]
+    public string ipPorDefecto = "192.168.20.152";
+    public ushort puertoPorDefecto = 7778;
 
     private UnityTransport transport;
 
     void Start()
     {
-        // 1. Localizamos el componente de transporte de red de forma segura
+        // 1. Obtener referencia al transporte de Netcode de forma segura
         if (NetworkManager.Singleton != null)
         {
             transport = NetworkManager.Singleton.GetComponent<UnityTransport>();
         }
 
-        // 2. Cargamos los valores actuales por defecto en los cuadros de texto
+        // 2. Leer la IP y Puerto guardados previamente en memoria local
+        string ipGuardada = PlayerPrefs.GetString("SAVED_HOST_IP", ipPorDefecto);
+        ushort puertoGuardado = (ushort)PlayerPrefs.GetInt("SAVED_HOST_PORT", puertoPorDefecto);
+
+        // 3. Aplicar al backend de red (UnityTransport) al arrancar
         if (transport != null)
         {
-            if (inputFieldIP != null) inputFieldIP.text = transport.ConnectionData.Address;
-            if (inputFieldPuerto != null) inputFieldPuerto.text = transport.ConnectionData.Port.ToString();
+            transport.ConnectionData.Address = ipGuardada;
+            transport.ConnectionData.Port = puertoGuardado;
         }
 
-        // Aseguramos que el panel inicie apagado para no estorbar en el Lobby
+        // 4. Rellenar los cuadros de texto con los valores activos
+        if (inputFieldIP != null) inputFieldIP.text = ipGuardada;
+        if (inputFieldPuerto != null) inputFieldPuerto.text = puertoGuardado.ToString();
+
+        // 5. Iniciar el panel apagado por defecto
         if (panelIP != null) panelIP.SetActive(false);
     }
 
-    // --- FUNCI”N 1: El botÛn "IP" principal que enciende y apaga el panel ---
+    // --- BTN: Abrir / Cerrar Teclado IP ---
     public void BTN_TogglePanelIP()
     {
         if (panelIP != null)
         {
             bool estadoActual = panelIP.activeSelf;
-            panelIP.SetActive(!estadoActual); // Si est· encendido lo apaga, y viceversa
+            panelIP.SetActive(!estadoActual);
 
-            // Al encenderlo, refrescamos el texto con lo que tenga el transport actualmente
-            if (!estadoActual && transport != null)
+            // Refrescar inputs al abrir con los datos reales que tenga el transporte
+            if (!estadoActual)
             {
-                if (inputFieldIP != null) inputFieldIP.text = transport.ConnectionData.Address;
-                if (inputFieldPuerto != null) inputFieldPuerto.text = transport.ConnectionData.Port.ToString();
+                if (transport == null && NetworkManager.Singleton != null)
+                {
+                    transport = NetworkManager.Singleton.GetComponent<UnityTransport>();
+                }
+
+                if (transport != null)
+                {
+                    if (inputFieldIP != null) inputFieldIP.text = transport.ConnectionData.Address;
+                    if (inputFieldPuerto != null) inputFieldPuerto.text = transport.ConnectionData.Port.ToString();
+                }
             }
         }
     }
 
-    // --- FUNCI”N 2: El botÛn de "Guardar / Aceptar" dentro del panel ---
+    // --- BTN: Guardar / Aceptar Configuraci√≥n ---
     public void BTN_GuardarConfiguracion()
     {
-        if (transport == null)
+        // Seguro por si el transporte no se asign√≥ en Start
+        if (transport == null && NetworkManager.Singleton != null)
         {
-            Debug.LogError("[NETWORK UI] No se encontrÛ el componente UnityTransport en el NetworkManager.");
-            return;
+            transport = NetworkManager.Singleton.GetComponent<UnityTransport>();
         }
 
-        // 1. Extraemos y validamos la IP
-        string nuevaIP = inputFieldIP != null ? inputFieldIP.text.Trim() : "0.0.0.0";
+        // 1. Validar la nueva IP
+        string nuevaIP = (inputFieldIP != null && !string.IsNullOrEmpty(inputFieldIP.text))
+            ? inputFieldIP.text.Trim()
+            : ipPorDefecto;
 
-        // 2. Extraemos y validamos el Puerto (convertimos el texto a n˙mero seguro ushort)
-        ushort nuevoPuerto = 7778; // Puerto por defecto de Netcode
+        // 2. Validar el nuevo Puerto (convertir texto a ushort)
+        ushort nuevoPuerto = puertoPorDefecto;
         if (inputFieldPuerto != null && ushort.TryParse(inputFieldPuerto.text.Trim(), out ushort puertoParseado))
         {
             nuevoPuerto = puertoParseado;
         }
 
-        // 3. Inyectamos los datos en caliente al motor de Netcode
-        transport.ConnectionData.Address = nuevaIP;
-        transport.ConnectionData.Port = nuevoPuerto;
+        // 3. üî¨ INYECCI√ìN EN EL BACKEND (Motor de Netcode)
+        if (transport != null)
+        {
+            transport.ConnectionData.Address = nuevaIP;
+            transport.ConnectionData.Port = nuevoPuerto;
+        }
 
-        Debug.Log($"<color=green><b>[CONFIGURACI”N RED GUARDADA]</b></color> Nueva direcciÛn establecida -> IP: {nuevaIP} | Puerto: {nuevoPuerto}");
+        // 4. üíæ GUARDADO PERMANENTE EN MEMORIA DEL VISOR
+        PlayerPrefs.SetString("SAVED_HOST_IP", nuevaIP);
+        PlayerPrefs.SetInt("SAVED_HOST_PORT", nuevoPuerto);
+        PlayerPrefs.Save();
 
-        // 4. Apagamos el panel autom·ticamente al aceptar para dar feedback de Èxito
+        // 5. üåü ACTUALIZACI√ìN VISUAL EN TIEMPO REAL EN PANTALLA
+        if (LobbyManager.Instance != null)
+        {
+            LobbyManager.Instance.ActualizarTextoIPEnPantalla(nuevaIP);
+        }
+
+        // 6. üîç LOG DE AUDITOR√çA EN CONSOLA
+        Debug.Log($"<color=green><b>[BACKEND RED ACTUALIZADO]</b></color> Conexi√≥n fijada a -> IP: <b>{nuevaIP}</b> | Puerto: <b>{nuevoPuerto}</b>");
+
+        // 7. Apagar el panel de teclado
         if (panelIP != null) panelIP.SetActive(false);
     }
 }
