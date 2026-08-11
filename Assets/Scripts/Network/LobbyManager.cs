@@ -25,8 +25,7 @@ public class LobbyManager : NetworkBehaviour
     public TextMeshProUGUI textoEstadoServidorMovil;
     public TextMeshProUGUI textoIPInicioMovil; // Muestra la IP antes de iniciar
     public TMP_InputField inputIPManualMovil; // Arrastra el InputField si deseas usar IP manual
-    public GameObject panelControlesJoysticks;
-
+    public GameObject btnReiniciarSimulacion;
 
     [Header("--- Elementos UI Inicio ---")]
     public TextMeshProUGUI textoIPActual;
@@ -99,8 +98,6 @@ public class LobbyManager : NetworkBehaviour
         if (!esVisorVR)
         {
             // 📱 MODO MÓVIL ADMIN
-            Debug.Log("<color=cyan>[MODO CONFIGURADO]</color> Ejecutando en MODO MÓVIL ADMIN.");
-
             GameObject miXR = GameObject.Find("XR_Origin_LOCAL");
             if (miXR != null) miXR.SetActive(false);
 
@@ -113,6 +110,9 @@ public class LobbyManager : NetworkBehaviour
             if (canvasMobileAdmin) canvasMobileAdmin.SetActive(true);
             if (panelMovilBotonInicio) panelMovilBotonInicio.SetActive(true);
             if (panelMovilDashboard) panelMovilDashboard.SetActive(false);
+
+            // 🌟 EL BOTÓN DE RESET SIEMPRE VISIBLE EN MÓVIL
+            if (btnReiniciarSimulacion != null) btnReiniciarSimulacion.SetActive(true);
 
             string ipAuto = ObtenerIPLocalLAN();
             if (textoIPInicioMovil != null)
@@ -483,29 +483,24 @@ public class LobbyManager : NetworkBehaviour
     {
         if (!IsServer) return;
 
-        // 1. MANTENER el Canvas activo (los Joysticks viven dentro)
         if (canvasMobileAdmin != null) canvasMobileAdmin.SetActive(true);
-
-        // 2. Ocultar el Dashboard de texto para limpiar la vista
         if (panelMovilDashboard != null) panelMovilDashboard.SetActive(false);
 
-        // 3. ACTIVAR el panel de los Joysticks visuales
-        if (panelControlesJoysticks != null) panelControlesJoysticks.SetActive(true);
+        // Activamos el botón flotante de reiniciar en la pantalla del móvil
+        if (btnReiniciarSimulacion != null) btnReiniciarSimulacion.SetActive(true);
 
-        // 4. Activar el script de movimiento en la cámara espectadora
+        // Activamos la cámara con gestos táctiles
         if (camaraEspectadoraMovil != null)
         {
             MobileSpectatorCamera scriptCam = camaraEspectadoraMovil.GetComponent<MobileSpectatorCamera>();
             if (scriptCam != null) scriptCam.enabled = true;
         }
 
-        // 5. Avisar a las Meta Quest de que arranquen la simulación
         CerrarLobbyEnTodosLosClientesClientRpc();
 
-        // 6. Arrancar la lógica principal del juego
         if (MainGameManager.Instance != null) MainGameManager.Instance.IniciarExperienciaDesdeLobby();
 
-        Debug.Log("<color=green>[SIMULACIÓN]</color> Partida iniciada por el Operador. Dashboard oculto y Joysticks activados.");
+        Debug.Log("<color=green>[SIMULACIÓN]</color> Partida iniciada. Gestos táctiles activos.");
     }
 
     [ClientRpc]
@@ -515,6 +510,49 @@ public class LobbyManager : NetworkBehaviour
         if (panelDevModo) panelDevModo.SetActive(false);
         if (panelColores) panelColores.SetActive(false);
         if (panelEspera) panelEspera.SetActive(false);
+    }
+
+    // 🌟 AQUÍ PEGAS TU NUEVO CÓDIGO 🌟
+
+    // Invocado al pulsar "🔄 REINICIAR LOBBY" en el móvil
+    public void BTN_ReiniciarSimulacionAdmin()
+    {
+        if (!IsServer) return;
+
+        // 1. Liberar todas las selecciones de colores en el servidor
+        dueñoRojo.Value = 999;
+        dueñoAzul.Value = 999;
+        dueñoVerde.Value = 999;
+        dueñoAmarillo.Value = 999;
+
+        // 2. Mandar orden a todos los visores y al móvil para reiniciar sus UIs
+        ReiniciarSimulacionClientRpc();
+
+        Debug.Log("<color=yellow>[REINICIO]</color> El operador ha reiniciado la partida.");
+    }
+
+    [ClientRpc]
+    private void ReiniciarSimulacionClientRpc()
+    {
+        colorSeleccionadoLocal = -1;
+
+        bool esVisorVR = forzarModoVR || UnityEngine.XR.XRSettings.isDeviceActive;
+
+        if (!esVisorVR)
+        {
+            // 📱 EN EL MÓVIL: Vuelve al Dashboard inicial y MANTIENE el botón de Reset activo
+            if (panelMovilDashboard != null) panelMovilDashboard.SetActive(true);
+            if (btnReiniciarSimulacion != null) btnReiniciarSimulacion.SetActive(true); // 👈 Mantener activo
+        }
+        else
+        {
+            // 🥽 EN LAS META QUEST: Vuelven a la pantalla de Selección de Color
+            if (panelInicioSimplificado) panelInicioSimplificado.SetActive(false);
+            if (panelDevModo) panelDevModo.SetActive(false);
+            if (panelColores) panelColores.SetActive(true);
+            if (panelEspera) panelEspera.SetActive(false);
+            if (btnContinuar != null) btnContinuar.interactable = false;
+        }
     }
 
     public Color ObtenerColorPorID(ulong idJugador)
