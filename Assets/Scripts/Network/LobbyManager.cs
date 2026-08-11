@@ -7,6 +7,9 @@ using TMPro;
 public class LobbyManager : NetworkBehaviour
 {
     public static LobbyManager Instance;
+    [Header("--- CONFIGURACIÓN DE PLATAFORMA ---")]
+    [Tooltip("Marca esta casilla para probar como META QUEST (VR). Desmárcala para MÓVIL ADMIN.")]
+    public bool forzarModoVR = false;
 
     [Header("--- UI PANELS (QUEST VR) ---")]
     public GameObject panelInicioSimplificado;
@@ -20,6 +23,10 @@ public class LobbyManager : NetworkBehaviour
     public GameObject panelMovilBotonInicio;
     public GameObject panelMovilDashboard;
     public TextMeshProUGUI textoEstadoServidorMovil;
+    public TextMeshProUGUI textoIPInicioMovil; // Muestra la IP antes de iniciar
+    public TMP_InputField inputIPManualMovil; // Arrastra el InputField si deseas usar IP manual
+    public GameObject panelControlesJoysticks;
+
 
     [Header("--- Elementos UI Inicio ---")]
     public TextMeshProUGUI textoIPActual;
@@ -57,24 +64,80 @@ public class LobbyManager : NetworkBehaviour
         else Destroy(gameObject);
     }
 
+    //void Start()
+    //{
+    //    ipFinalTrabajo = PlayerPrefs.GetString("SAVED_HOST_IP", IpnumeroDefecto);
+    //    ActualizarTextoIPUI();
+
+    //    if (canvasMobileAdmin) canvasMobileAdmin.SetActive(false);
+    //    if (camaraEspectadoraMovil) camaraEspectadoraMovil.gameObject.SetActive(false);
+
+    //    if (panelInicioSimplificado) panelInicioSimplificado.SetActive(true);
+    //    if (panelDevModo) panelDevModo.SetActive(false);
+    //    if (panelColores) panelColores.SetActive(false);
+    //    if (panelEspera) panelEspera.SetActive(false);
+    //    if (btnContinuar != null) btnContinuar.interactable = false;
+
+    //    if (NetworkManager.Singleton != null)
+    //    {
+    //        NetworkManager.Singleton.ConnectionApprovalCallback = ApprovalCheck;
+    //    }
+    //}
     void Start()
     {
         ipFinalTrabajo = PlayerPrefs.GetString("SAVED_HOST_IP", IpnumeroDefecto);
         ActualizarTextoIPUI();
 
-        if (canvasMobileAdmin) canvasMobileAdmin.SetActive(false);
-        if (camaraEspectadoraMovil) camaraEspectadoraMovil.gameObject.SetActive(false);
-
-        if (panelInicioSimplificado) panelInicioSimplificado.SetActive(true);
-        if (panelDevModo) panelDevModo.SetActive(false);
-        if (panelColores) panelColores.SetActive(false);
-        if (panelEspera) panelEspera.SetActive(false);
-        if (btnContinuar != null) btnContinuar.interactable = false;
-
         if (NetworkManager.Singleton != null)
         {
             NetworkManager.Singleton.ConnectionApprovalCallback = ApprovalCheck;
         }
+
+        // 🌟 EVALUACIÓN DE PLATAFORMA: Usa la casilla del Inspector O la autodetección
+        bool esVisorVR = forzarModoVR || UnityEngine.XR.XRSettings.isDeviceActive;
+
+        if (!esVisorVR)
+        {
+            // 📱 MODO MÓVIL ADMIN
+            Debug.Log("<color=cyan>[MODO CONFIGURADO]</color> Ejecutando en MODO MÓVIL ADMIN.");
+
+            GameObject miXR = GameObject.Find("XR_Origin_LOCAL");
+            if (miXR != null) miXR.SetActive(false);
+
+            if (panelInicioSimplificado) panelInicioSimplificado.SetActive(false);
+            if (panelDevModo) panelDevModo.SetActive(false);
+            if (panelColores) panelColores.SetActive(false);
+            if (panelEspera) panelEspera.SetActive(false);
+
+            if (camaraEspectadoraMovil) camaraEspectadoraMovil.gameObject.SetActive(true);
+            if (canvasMobileAdmin) canvasMobileAdmin.SetActive(true);
+            if (panelMovilBotonInicio) panelMovilBotonInicio.SetActive(true);
+            if (panelMovilDashboard) panelMovilDashboard.SetActive(false);
+
+            string ipAuto = ObtenerIPLocalLAN();
+            if (textoIPInicioMovil != null)
+            {
+                textoIPInicioMovil.text = $"IP Wi-Fi Detectada: <color=yellow><b>{ipAuto}</b></color>";
+            }
+        }
+        else
+        {
+            // 🥽 MODO META QUEST VR
+            Debug.Log("<color=green>[MODO CONFIGURADO]</color> Ejecutando en MODO VR (META QUEST).");
+
+            GameObject miXR = GameObject.Find("XR_Origin_LOCAL");
+            if (miXR != null) miXR.SetActive(true);
+
+            if (canvasMobileAdmin) canvasMobileAdmin.SetActive(false);
+            if (camaraEspectadoraMovil) camaraEspectadoraMovil.gameObject.SetActive(false);
+
+            if (panelInicioSimplificado) panelInicioSimplificado.SetActive(true);
+            if (panelDevModo) panelDevModo.SetActive(false);
+            if (panelColores) panelColores.SetActive(false);
+            if (panelEspera) panelEspera.SetActive(false);
+        }
+
+        if (btnContinuar != null) btnContinuar.interactable = false;
     }
 
     // === PROTECCIÓN DE RED: LIMPIEZA PREVIA DE SESIONES ===
@@ -125,11 +188,9 @@ public class LobbyManager : NetworkBehaviour
     {
         ReiniciarRedYEjecutar(() =>
         {
-            // Apagamos VR
             GameObject miXR = GameObject.Find("XR_Origin_LOCAL");
             if (miXR != null) miXR.SetActive(false);
 
-            // Activamos Cámara Espectadora y su script de Controles Táctiles
             if (camaraEspectadoraMovil)
             {
                 camaraEspectadoraMovil.gameObject.SetActive(true);
@@ -145,16 +206,23 @@ public class LobbyManager : NetworkBehaviour
             if (panelMovilBotonInicio) panelMovilBotonInicio.SetActive(false);
             if (panelMovilDashboard) panelMovilDashboard.SetActive(true);
 
+            // 🌟 EVALUACIÓN DE IP: ¿Se escribió una IP manual de emergencia o usamos la automática?
+            string miIP = (inputIPManualMovil != null && !string.IsNullOrEmpty(inputIPManualMovil.text))
+                ? inputIPManualMovil.text.Trim()
+                : ObtenerIPLocalLAN();
+
+            AplicarIPAlTransporte(miIP);
             EnviarIdentificacionDispositivo("ADMIN");
             NetworkManager.Singleton.StartHost();
 
-            string miIP = ObtenerIPLocalLAN();
             if (textoEstadoServidorMovil != null)
             {
                 textoEstadoServidorMovil.text = $"<color=green><b>● SERVIDOR OPERADOR ACTIVO</b></color>\n" +
                                                 $"IP LAN: <color=yellow><b>{miIP}</b></color> | Puerto: {Puerto}\n\n" +
                                                 $"<i>Las Meta Quest deben conectarse a esta IP.</i>";
             }
+
+            Debug.Log($"<color=green>[HOST ADMIN]</color> Servidor activo en IP: {miIP}");
         });
     }
 
@@ -394,21 +462,50 @@ public class LobbyManager : NetworkBehaviour
     }
 
     // Invocado al pulsar "INICIAR SIMULACIÓN"
+    //public void BTN_HostIniciarJuego()
+    //{
+    //    if (!IsServer) return;
+
+    //    // 1. Ocultar la interfaz del dashboard en la pantalla del móvil para dejar la vista 3D limpia
+    //    if (panelMovilDashboard != null) panelMovilDashboard.SetActive(false);
+    //    if (canvasMobileAdmin != null) canvasMobileAdmin.SetActive(false);
+
+    //    // 2. Avisar a las Meta Quest de que arranquen la simulación
+    //    CerrarLobbyEnTodosLosClientesClientRpc();
+
+    //    // 3. Arrancar la lógica principal del juego
+    //    if (MainGameManager.Instance != null) MainGameManager.Instance.IniciarExperienciaDesdeLobby();
+
+    //    Debug.Log("<color=green>[SIMULACIÓN]</color> Partida iniciada por el Operador. Pantalla limpia para la vista espectadora.");
+    //}
+
     public void BTN_HostIniciarJuego()
     {
         if (!IsServer) return;
 
-        // 1. Ocultar la interfaz del dashboard en la pantalla del móvil para dejar la vista 3D limpia
-        if (panelMovilDashboard != null) panelMovilDashboard.SetActive(false);
-        if (canvasMobileAdmin != null) canvasMobileAdmin.SetActive(false);
+        // 1. MANTENER el Canvas activo (los Joysticks viven dentro)
+        if (canvasMobileAdmin != null) canvasMobileAdmin.SetActive(true);
 
-        // 2. Avisar a las Meta Quest de que arranquen la simulación
+        // 2. Ocultar el Dashboard de texto para limpiar la vista
+        if (panelMovilDashboard != null) panelMovilDashboard.SetActive(false);
+
+        // 3. ACTIVAR el panel de los Joysticks visuales
+        if (panelControlesJoysticks != null) panelControlesJoysticks.SetActive(true);
+
+        // 4. Activar el script de movimiento en la cámara espectadora
+        if (camaraEspectadoraMovil != null)
+        {
+            MobileSpectatorCamera scriptCam = camaraEspectadoraMovil.GetComponent<MobileSpectatorCamera>();
+            if (scriptCam != null) scriptCam.enabled = true;
+        }
+
+        // 5. Avisar a las Meta Quest de que arranquen la simulación
         CerrarLobbyEnTodosLosClientesClientRpc();
 
-        // 3. Arrancar la lógica principal del juego
+        // 6. Arrancar la lógica principal del juego
         if (MainGameManager.Instance != null) MainGameManager.Instance.IniciarExperienciaDesdeLobby();
 
-        Debug.Log("<color=green>[SIMULACIÓN]</color> Partida iniciada por el Operador. Pantalla limpia para la vista espectadora.");
+        Debug.Log("<color=green>[SIMULACIÓN]</color> Partida iniciada por el Operador. Dashboard oculto y Joysticks activados.");
     }
 
     [ClientRpc]

@@ -2,12 +2,15 @@ using UnityEngine;
 
 public class MobileSpectatorCamera : MonoBehaviour
 {
-    [Header("--- Sensibilidad de Controles Táctiles ---")]
-    public float sensRotacion = 0.15f;
-    public float sensDesplazamiento = 0.008f;
-    public float sensPinchZoom = 0.015f;
+    [Header("--- Referencias Joysticks Visuales ---")]
+    public VirtualJoystick joystickIzquierdo; // Para Moverse (Adelante/Atrás/Lados)
+    public VirtualJoystick joystickDerecho;   // Para Rotar la vista (Mirar alrededor)
 
-    [Header("--- Limites de Rotación ---")]
+    [Header("--- Velocidad de Control ---")]
+    public float velocidadMovimiento = 6f;
+    public float velocidadRotacion = 80f;
+
+    [Header("--- Limites de Rotación Vertical ---")]
     public float pitchMinimo = -80f;
     public float pitchMaximo = 80f;
 
@@ -23,46 +26,25 @@ public class MobileSpectatorCamera : MonoBehaviour
 
     void Update()
     {
-        // 1 DEDO: Rotar la cámara (Mirar alrededor)
-        if (Input.touchCount == 1)
+        // 1. ROTACIÓN CON JOYSTICK DERECHO (Mirar)
+        if (joystickDerecho != null)
         {
-            Touch touch = Input.GetTouch(0);
-            if (touch.phase == TouchPhase.Moved)
-            {
-                yaw += touch.deltaPosition.x * sensRotacion;
-                pitch -= touch.deltaPosition.y * sensRotacion;
-                pitch = Mathf.Clamp(pitch, pitchMinimo, pitchMaximo);
+            Vector2 rotInput = joystickDerecho.InputVector;
+            yaw += rotInput.x * velocidadRotacion * Time.deltaTime;
+            pitch -= rotInput.y * velocidadRotacion * Time.deltaTime;
+            pitch = Mathf.Clamp(pitch, pitchMinimo, pitchMaximo);
 
-                transform.rotation = Quaternion.Euler(pitch, yaw, 0f);
-            }
+            transform.rotation = Quaternion.Euler(pitch, yaw, 0f);
         }
-        // 2 DEDOS: Desplazar posición de la cámara (Volar por el escenario)
-        else if (Input.touchCount == 2)
+
+        // 2. MOVIMIENTO CON JOYSTICK IZQUIERDO (Volar por el mapa)
+        if (joystickIzquierdo != null)
         {
-            Touch t0 = Input.GetTouch(0);
-            Touch t1 = Input.GetTouch(1);
+            Vector2 moveInput = joystickIzquierdo.InputVector;
 
-            if (t0.phase == TouchPhase.Moved || t1.phase == TouchPhase.Moved)
-            {
-                Vector2 t0Prev = t0.position - t0.deltaPosition;
-                Vector2 t1Prev = t1.position - t1.deltaPosition;
-
-                // 1. Desplazamiento lateral y vertical (Pan)
-                Vector2 centroActual = (t0.position + t1.position) * 0.5f;
-                Vector2 centroPrevio = (t0Prev + t1Prev) * 0.5f;
-                Vector2 deltaCentro = centroActual - centroPrevio;
-
-                Vector3 movimientoHorizontal = -transform.right * (deltaCentro.x * sensDesplazamiento);
-                Vector3 movimientoVertical = -transform.up * (deltaCentro.y * sensDesplazamiento);
-                transform.position += (movimientoHorizontal + movimientoVertical);
-
-                // 2. Acercar / Alejar (Pinch to Zoom / Avance 3D)
-                float distPrevia = (t0Prev - t1Prev).magnitude;
-                float distActual = (t0.position - t1.position).magnitude;
-                float deltaDistancia = distActual - distPrevia;
-
-                transform.position += transform.forward * (deltaDistancia * sensPinchZoom);
-            }
+            // Avance 3D en la dirección hacia donde mira la cámara
+            Vector3 direccion = (transform.forward * moveInput.y + transform.right * moveInput.x);
+            transform.position += direccion * velocidadMovimiento * Time.deltaTime;
         }
     }
 }
