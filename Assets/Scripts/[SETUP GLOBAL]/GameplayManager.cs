@@ -232,4 +232,37 @@ public class GameplayManager : NetworkBehaviour
 
         if (MainGameManager.Instance != null) MainGameManager.Instance.FinalizarExperienciaCompleta();
     }
+
+    // 🌟 MÉTODO DE LIMPIEZA DE ARMAS Y ASTEROIDES
+    public void LimpiarGameplayParaReset()
+    {
+        juegoActivo = false;
+        StopAllCoroutines();
+
+        if (entornoJuego != null) entornoJuego.SetActive(false);
+
+        // Limpieza exclusiva del servidor (Despawnear objetos en la red)
+        if (IsServer)
+        {
+            // Borrar armas instanciadas
+            foreach (var armaNetObj in armasSpawneadas)
+            {
+                if (armaNetObj != null && armaNetObj.IsSpawned) armaNetObj.Despawn();
+            }
+            armasSpawneadas.Clear();
+
+            // Borrar asteroides en pantalla
+            var objetivos = FindObjectsByType<AsteroidTarget>(FindObjectsSortMode.None);
+            foreach (var obj in objetivos)
+            {
+                if (obj != null && obj.GetComponent<NetworkObject>() != null && obj.GetComponent<NetworkObject>().IsSpawned)
+                {
+                    obj.GetComponent<NetworkObject>().Despawn();
+                }
+            }
+        }
+
+        pantallasDeArmas.Clear();
+        Debug.Log("<color=orange>[GAMEPLAY MANAGER]</color> Armas y asteroides despawneados con éxito.");
+    }
 }

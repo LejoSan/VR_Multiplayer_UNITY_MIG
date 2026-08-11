@@ -320,4 +320,35 @@ public class MainGameManager : NetworkBehaviour
             GameplayManager.Instance.IniciarPartida();
         }
     }
+
+    // 🌟 MÉTODO DE RESETEO TOTAL A ESTADO CERO
+    public void ReiniciarJuego()
+    {
+        // 1. Detener corrutinas y audios activos
+        StopAllCoroutines();
+        CancelInvoke();
+        if (audioSource != null) audioSource.Stop();
+
+        // 2. Desactivar todos los bloques de la simulación en 3D
+        if (bloqueRobot != null) bloqueRobot.SetActive(false);
+        if (bloqueInstrucciones != null) bloqueInstrucciones.SetActive(false);
+        if (bloqueGameplay != null) bloqueGameplay.SetActive(false);
+        if (bloqueVictoria != null) bloqueVictoria.SetActive(false);
+        if (entornoVR != null) entornoVR.SetActive(false);
+
+        // 3. Si eres el Servidor, resetear las variables de red
+        if (IsServer)
+        {
+            estadoActual.Value = EstadoJuego.EsperandoLobby;
+            jugadoresListos.Value = 0;
+        }
+
+        // 4. Mandar a limpiar las pistolas y asteroides a GameplayManager
+        if (GameplayManager.Instance != null)
+        {
+            GameplayManager.Instance.LimpiarGameplayParaReset();
+        }
+
+        Debug.Log("<color=cyan>[MAIN GAME MANAGER]</color> Proyecto restablecido al estado cero.");
+    }
 }
