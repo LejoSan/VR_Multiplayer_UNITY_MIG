@@ -105,7 +105,7 @@ GameObject:
   - component: {fileID: 2353059413760255675}
   - component: {fileID: 4243540543470277386}
   - component: {fileID: 3675454871699830795}
-  - component: {fileID: 3505816639943270009}
+  - component: {fileID: 3272169823818041373}
   - component: {fileID: 2993290120121599934}
   m_Layer: 0
   m_Name: StylizedPistol
@@ -411,6 +411,10 @@ MonoBehaviour:
   dispersion: 1
   audioDisparo: {fileID: 2993290120121599934}
   sonidoClip: {fileID: 0}
+  puntoDeAgarre: {fileID: 6909553108248180710}
+  nombreManoDerecha: Right Controller
+  manoController: 5
+  cadenciaDisparo: 0.15
 --- !u!114 &3675454871699830795
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -426,21 +430,22 @@ MonoBehaviour:
   ShowTopMostFoldoutHeaderGroup: 1
   textoTiempo: {fileID: 8112148003916071130}
   textoPuntuacion: {fileID: 3099664899018728242}
---- !u!114 &3505816639943270009
+--- !u!114 &3272169823818041373
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 954894910799589832}
-  m_Enabled: 1
+  m_Enabled: 0
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 9a4f03422673fe246a4d15eac5c70e52, type: 3}
+  m_Script: {fileID: 11500000, guid: 2c40702bf33bfac49b52cff40dbf3165, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::WeaponInvite
-  amplitud: 0.05
-  frecuencia: 2
-  velocidadGiro: 30
+  m_EditorClassIdentifier: Assembly-CSharp::AutoEquipWeapon
+  ShowTopMostFoldoutHeaderGroup: 1
+  nombreObjetoMano: Right Controller
+  offsetPosicion: {x: 0, y: 0, z: 0}
+  offsetRotacion: {x: 0, y: 0, z: 0}
 --- !u!82 &2993290120121599934
 AudioSource:
   m_ObjectHideFlags: 0

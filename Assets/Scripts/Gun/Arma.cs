@@ -1,5 +1,5 @@
 using UnityEngine;
-using UnityEngine.XR.Interaction.Toolkit;
+using UnityEngine.XR;
 using UnityEngine.XR.Interaction.Toolkit.Interactables;
 using Unity.Netcode;
 
@@ -14,98 +14,213 @@ public class Arma : NetworkBehaviour
     public AudioSource audioDisparo;
     public AudioClip sonidoClip;
 
-    private XRGrabInteractable grabInteractable;
+    [Header("Alineación con la Mano VR")]
+    [Tooltip("Arrastra aquí el objeto hijo 'PuntoDeAgarre' de tu pistola")]
+    public Transform puntoDeAgarre;
+    [Tooltip("Nombre exacto de la mano en XR_Origin_LOCAL")]
+    public string nombreManoDerecha = "Right Controller";
+    public XRNode manoController = XRNode.RightHand;
+
+    [Tooltip("Tiempo mínimo entre disparos en segundos")]
+    public float cadenciaDisparo = 0.15f;
+
+    private Transform manoTransform;
+    private bool estabaPresionadoAnteriormente = false;
+    private float ultimoTiempoDisparo = 0f;
 
     void Awake()
     {
-        grabInteractable = GetComponent<XRGrabInteractable>();
+        // 🛑 DESHABILITAR EL BOTÓN DE AGARRAR (GRIP) POR COMPLETO
+        // Desactivamos el XRGrabInteractable para que el botón Grip no mueva ni suelte el arma
+        if (TryGetComponent<XRGrabInteractable>(out var grabInteractable))
+        {
+            grabInteractable.enabled = false;
+            Destroy(grabInteractable); // Lo eliminamos para evitar cualquier conflicto de física
+        }
+
+        // Asegurar que la física no afecte al arma pegada a la mano
+        if (TryGetComponent<Rigidbody>(out var rb))
+        {
+            rb.isKinematic = true;
+            rb.useGravity = false;
+        }
     }
 
-    void OnEnable()
+    public override void OnNetworkSpawn()
     {
-        grabInteractable.activated.AddListener(DispararConGatillo);
+        if (EsDuenioLocal())
+        {
+            BuscarManoLocal();
+        }
     }
 
-    void OnDisable()
+    private bool EsDuenioLocal()
     {
-        grabInteractable.activated.RemoveListener(DispararConGatillo);
+        // Funciona tanto en partida multijugador (IsOwner) como probando en el Editor (sin Netcode activo)
+        return !IsSpawned || IsOwner;
     }
 
-    private void DispararConGatillo(ActivateEventArgs arg)
+    private void BuscarManoLocal()
     {
-        Shoot();
+        GameObject origin = GameObject.Find("XR_Origin_LOCAL");
+        if (origin != null)
+        {
+            Transform[] todosLosHijos = origin.GetComponentsInChildren<Transform>(true);
+            foreach (Transform t in todosLosHijos)
+            {
+                if (t.name.Equals(nombreManoDerecha, System.StringComparison.OrdinalIgnoreCase))
+                {
+                    manoTransform = t;
+                    break;
+                }
+            }
+        }
+    }
+
+    void Update()
+    {
+        if (EsDuenioLocal())
+        {
+            DetectarGatilloVR();
+        }
+    }
+
+    void LateUpdate()
+    {
+        if (EsDuenioLocal())
+        {
+            if (manoTransform == null)
+            {
+                BuscarManoLocal();
+            }
+
+            if (manoTransform != null)
+            {
+                AlinearConMano();
+            }
+        }
+    }
+
+    private void AlinearConMano()
+    {
+        if (puntoDeAgarre != null)
+        {
+            // Alineación exacta usando 'puntoDeAgarre'
+            Quaternion rotacionRelativa = puntoDeAgarre.localRotation;
+            Vector3 posicionRelativa = puntoDeAgarre.localPosition;
+
+            transform.rotation = manoTransform.rotation * Quaternion.Inverse(rotacionRelativa);
+            transform.position = manoTransform.position - (transform.rotation * posicionRelativa);
+        }
+        else
+        {
+            transform.position = manoTransform.position;
+            transform.rotation = manoTransform.rotation;
+        }
+    }
+
+    private void DetectarGatilloVR()
+    {
+        bool triggerPresionado = false;
+
+        // 1. Detección por Hardware VR (Visor / Mandos)
+        InputDevice device = InputDevices.GetDeviceAtXRNode(manoController);
+        if (device.isValid)
+        {
+            // Lectura como botón booleano
+            if (device.TryGetFeatureValue(CommonUsages.triggerButton, out bool btnState))
+            {
+                triggerPresionado |= btnState;
+            }
+            // Lectura como eje analógico (presionado más de la mitad)
+            if (device.TryGetFeatureValue(CommonUsages.trigger, out float triggerValue))
+            {
+                triggerPresionado |= (triggerValue > 0.5f);
+            }
+        }
+
+        // 2. Detección de respaldo para pruebas en Editor (Clic de ratón o tecla Espacio)
+        if (Input.GetMouseButtonDown(0) || Input.GetKeyDown(KeyCode.Space))
+        {
+            triggerPresionado = true;
+        }
+
+        // Lógica de disparo
+        if (triggerPresionado && !estabaPresionadoAnteriormente)
+        {
+            if (Time.time >= ultimoTiempoDisparo + cadenciaDisparo)
+            {
+                Shoot();
+                ultimoTiempoDisparo = Time.time;
+            }
+        }
+
+        estabaPresionadoAnteriormente = triggerPresionado;
     }
 
     public void Shoot()
     {
-        if (audioDisparo && sonidoClip) audioDisparo.PlayOneShot(sonidoClip);
-        else if (audioDisparo) audioDisparo.Play();
+        ReproducirSonidoDisparo();
+
+        if (puntaDelArma == null || prefabLaser == null)
+        {
+            Debug.LogWarning("[ARMA] Falta asignar PuntaDelArma o PrefabLaser en el Inspector.");
+            return;
+        }
 
         Quaternion rotacionConRuido = puntaDelArma.rotation;
         rotacionConRuido *= Quaternion.Euler(Random.Range(-dispersion, dispersion), Random.Range(-dispersion, dispersion), 0);
         Quaternion rotacionCorregida = rotacionConRuido * Quaternion.Euler(90, 0, 0);
 
-        ulong miID = NetworkManager.Singleton.LocalClientId;
-        DispararServerRpc(miID, puntaDelArma.position, rotacionCorregida);
+        if (NetworkManager.Singleton != null && NetworkManager.Singleton.IsListening)
+        {
+            ulong miID = NetworkManager.Singleton.LocalClientId;
+            DispararServerRpc(miID, puntaDelArma.position, rotacionCorregida);
+        }
+        else
+        {
+            // Disparo local si estás probando sin red
+            Instantiate(prefabLaser, puntaDelArma.position, rotacionCorregida);
+        }
+    }
+
+    private void ReproducirSonidoDisparo()
+    {
+        if (audioDisparo != null)
+        {
+            if (sonidoClip != null) audioDisparo.PlayOneShot(sonidoClip);
+            else audioDisparo.Play();
+        }
     }
 
     [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Everyone)]
     private void DispararServerRpc(ulong idTirador, Vector3 posicion, Quaternion rotacion)
     {
-        // 1. Instanciamos el prefab de la bala (pa maestra)
         GameObject nuevoLaser = Instantiate(prefabLaser, posicion, rotacion);
 
-        Debug.Log($"<color=magenta><b>[DEBUG ARMA]</b></color> Servidor ejecuta disparo. ID del tirador enviado: {idTirador}");
-
-        // 2. 🌟 EL BARREDO TOTAL: Buscamos TODOS los scripts LaserBolt en la raíz y en los hijos (activos o no)
         LaserBolt[] todosLosScriptsLaser = nuevoLaser.GetComponentsInChildren<LaserBolt>(true);
-
-        Debug.Log($"<color=yellow><b>[DEBUG ARMA]</b></color> Se detectaron {todosLosScriptsLaser.Length} instancias del script LaserBolt en este objeto.");
-
         foreach (LaserBolt scriptLaser in todosLosScriptsLaser)
         {
-            if (scriptLaser != null)
-            {
-                scriptLaser.idDueñoServidor = idTirador; // Se lo inyectamos a todos por seguridad
-            }
+            if (scriptLaser != null) scriptLaser.idDueñoServidor = idTirador;
         }
 
-        // 3. Spawneamos el objeto en la red de forma legal
         NetworkObject netObj = nuevoLaser.GetComponent<NetworkObject>() ?? nuevoLaser.GetComponentInChildren<NetworkObject>();
-        if (netObj != null)
-        {
-            netObj.Spawn();
-        }
+        if (netObj != null) netObj.Spawn();
 
-        // 4. Sincronizamos la NetworkVariable de red en todas las copias para los clientes
         foreach (LaserBolt scriptLaser in todosLosScriptsLaser)
         {
-            if (scriptLaser != null)
-            {
-                scriptLaser.idDueño.Value = idTirador;
-            }
+            if (scriptLaser != null) scriptLaser.idDueño.Value = idTirador;
+        }
+
+        ReproducirSonidoClientRpc();
+    }
+
+    [Rpc(SendTo.ClientsAndHost)]
+    private void ReproducirSonidoClientRpc()
+    {
+        if (!IsOwner)
+        {
+            ReproducirSonidoDisparo();
         }
     }
 }
-
-//    [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Everyone)]
-//    private void DispararServerRpc(ulong idTirador, Vector3 posicion, Quaternion rotacion)
-//    {
-//        // El servidor crea el láser...
-//        GameObject nuevoLaser = Instantiate(prefabLaser, posicion, rotacion);
-
-//        // Buscamos el script de forma segura en la raíz o en los hijos
-//        LaserBolt scriptLaser = nuevoLaser.GetComponentInChildren<LaserBolt>();
-//        if (scriptLaser != null)
-//        {
-//            scriptLaser.idDueño.Value = idTirador;
-//        }
-
-//        // Buscamos el NetworkObject en la raíz o en los hijos y lo spawneamos
-//        NetworkObject netObj = nuevoLaser.GetComponentInParent<NetworkObject>() ?? nuevoLaser.GetComponentInChildren<NetworkObject>();
-//        if (netObj != null)
-//        {
-//            netObj.Spawn();
-//        }
-//    }
-//}'

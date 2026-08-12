@@ -1,7 +1,8 @@
 ﻿using UnityEngine;
 using TMPro;
 using Unity.Netcode;
-using System.Collections;
+using UnityEngine.XR.Interaction.Toolkit;
+using UnityEngine.XR.Interaction.Toolkit.Interactables;
 
 public class WeaponDisplay : NetworkBehaviour
 {
@@ -10,6 +11,12 @@ public class WeaponDisplay : NetworkBehaviour
     public TextMeshProUGUI textoPuntuacion;
 
     private PlayerNetworkState estadoDueñoJugador;
+    private XRGrabInteractable grabInteractable;
+
+    void Awake()
+    {
+        grabInteractable = GetComponentInParent<XRGrabInteractable>();
+    }
 
     void Start()
     {
@@ -19,40 +26,53 @@ public class WeaponDisplay : NetworkBehaviour
         }
     }
 
-    public override void OnNetworkSpawn()
+    private void OnEnable()
     {
-        StartCoroutine(RutinaAutoVincularConDueño());
+        if (grabInteractable != null)
+        {
+            grabInteractable.selectEntered.AddListener(AlAgarrarArma);
+        }
     }
 
-    private IEnumerator RutinaAutoVincularConDueño()
+    private void OnDisable()
     {
-        yield return new WaitForSeconds(0.4f);
-        ulong idMiDueño = OwnerClientId;
-        int intentos = 0;
-
-        while (estadoDueñoJugador == null && intentos < 15)
+        if (grabInteractable != null)
         {
-            PlayerNetworkState[] todosLosEstados = FindObjectsByType<PlayerNetworkState>(FindObjectsSortMode.None);
+            grabInteractable.selectEntered.RemoveListener(AlAgarrarArma);
+        }
+    }
 
-            foreach (var estado in todosLosEstados)
-            {
-                if (estado.OwnerClientId == idMiDueño)
-                {
-                    estadoDueñoJugador = estado;
-                    break;
-                }
-            }
+    public override void OnNetworkSpawn()
+    {
+        VincularConDueñoActual(OwnerClientId);
+    }
 
-            if (estadoDueñoJugador == null)
+    private void AlAgarrarArma(SelectEnterEventArgs args)
+    {
+        ulong idJugador = NetworkManager.Singleton.LocalClientId;
+        VincularConDueñoActual(idJugador);
+    }
+
+    public void VincularConDueñoActual(ulong idDueño)
+    {
+        if (estadoDueñoJugador != null)
+        {
+            estadoDueñoJugador.puntuacion.OnValueChanged -= AlCambiarPuntosRed;
+            estadoDueñoJugador = null;
+        }
+
+        PlayerNetworkState[] todosLosEstados = FindObjectsByType<PlayerNetworkState>(FindObjectsSortMode.None);
+        foreach (var estado in todosLosEstados)
+        {
+            if (estado.OwnerClientId == idDueño)
             {
-                intentos++;
-                yield return new WaitForSeconds(0.2f);
+                estadoDueñoJugador = estado;
+                break;
             }
         }
 
         if (estadoDueñoJugador != null)
         {
-            estadoDueñoJugador.puntuacion.OnValueChanged -= AlCambiarPuntosRed;
             estadoDueñoJugador.puntuacion.OnValueChanged += AlCambiarPuntosRed;
             ActualizarPuntos(estadoDueñoJugador.puntuacion.Value);
         }

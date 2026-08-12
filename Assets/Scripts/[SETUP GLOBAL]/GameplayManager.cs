@@ -123,20 +123,18 @@ public class GameplayManager : NetworkBehaviour
             {
                 Transform puntoSpawn = puntosDeSpawnJugadores[idJugador];
 
-                // Calculamos la posición frente al punto de spawn del jugador
-                Vector3 posicionArma = puntoSpawn.position + (puntoSpawn.forward * 0.5f) + (Vector3.up * 1.2f);
-
-                // El Servidor instancia la pistola
-                GameObject miArma = Instantiate(prefabArma, posicionArma, puntoSpawn.rotation);
+                // El Servidor instancia el arma en el punto de spawn del jugador
+                GameObject miArma = Instantiate(prefabArma, puntoSpawn.position, puntoSpawn.rotation);
                 NetworkObject netObj = miArma.GetComponent<NetworkObject>();
 
                 if (netObj != null)
                 {
-                    // Al nacer con Ownership, el script WeaponDisplay sabrá autónomamente de quién es
+                    // Al nacer con la propiedad (Ownership) asignada al cliente, 
+                    // el script Arma.cs del cliente se la pegará automáticamente a su mano local
                     netObj.SpawnWithOwnership(client.ClientId, true);
                     armasSpawneadas.Add(netObj);
 
-                    Debug.Log($"[SERVER] Arma creada y firmada legalmente por el Servidor para el Jugador ID: {idJugador}");
+                    Debug.Log($"[SERVER] Arma creada y asignada al Jugador ID: {idJugador}");
                 }
             }
         }
