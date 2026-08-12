@@ -60,6 +60,8 @@ public class LobbyManager : NetworkBehaviour
     private NetworkVariable<ulong> dueñoAmarillo = new NetworkVariable<ulong>(999, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
 
     private int colorSeleccionadoLocal = -1;
+    private Vector3 posInicialXR;
+    private Quaternion rotInicialXR;
 
     void Awake()
     {
@@ -91,11 +93,19 @@ public class LobbyManager : NetworkBehaviour
         ipFinalTrabajo = PlayerPrefs.GetString("SAVED_HOST_IP", IpnumeroDefecto);
         ActualizarTextoIPUI();
 
-        // Guardar la posición/rotación inicial de la cámara del móvil
+        // Guardar posición inicial de la Cámara Espectadora Móvil
         if (camaraEspectadoraMovil != null)
         {
             posInicialCamara = camaraEspectadoraMovil.transform.position;
             rotInicialCamara = camaraEspectadoraMovil.transform.rotation;
+        }
+
+        // 🌟 NUEVO: Guardar posición y rotación inicial del XR_Origin_LOCAL (Visor VR)
+        GameObject miXR = GameObject.Find("XR_Origin_LOCAL");
+        if (miXR != null)
+        {
+            posInicialXR = miXR.transform.position;
+            rotInicialXR = miXR.transform.rotation;
         }
 
         if (NetworkManager.Singleton != null)
@@ -108,7 +118,6 @@ public class LobbyManager : NetworkBehaviour
         if (!esVisorVR)
         {
             // 📱 MODO MÓVIL
-            GameObject miXR = GameObject.Find("XR_Origin_LOCAL");
             if (miXR != null) miXR.SetActive(false);
 
             if (panelInicioSimplificado) panelInicioSimplificado.SetActive(false);
@@ -132,7 +141,6 @@ public class LobbyManager : NetworkBehaviour
         else
         {
             // 🥽 MODO VR
-            GameObject miXR = GameObject.Find("XR_Origin_LOCAL");
             if (miXR != null) miXR.SetActive(true);
 
             if (canvasMobileAdmin) canvasMobileAdmin.SetActive(false);
@@ -224,7 +232,7 @@ public class LobbyManager : NetworkBehaviour
 
             if (textoEstadoServidorMovil != null)
             {
-                textoEstadoServidorMovil.text = $"<color=green><b>● SERVIDOR OPERADOR ACTIVO</b></color>" +
+                textoEstadoServidorMovil.text = $"<color=green><b>● SERVIDOR OPERADOR ACTIVO\n</b></color>" +
                                                 $"IP LAN: <color=yellow><b>{miIP}</b></color> | Puerto: {Puerto}\n" +
                                                 $"<i>Las Meta Quest deben conectarse a esta IP.</i>";
             }
@@ -563,9 +571,10 @@ public class LobbyManager : NetworkBehaviour
     [ClientRpc]
     private void ResetearProyectoCompletoClientRpc()
     {
+        // 1. Resetear la selección local del jugador
         colorSeleccionadoLocal = -1;
 
-        // 🌟 1. LÓGICA DE JUEGO: Le ordenamos a la simulación que se detenga y se limpie
+        // 2. Detener la lógica de juego 3D, armas y asteroides (y encender Bloque 1)
         if (MainGameManager.Instance != null)
         {
             MainGameManager.Instance.ReiniciarJuego();
@@ -592,17 +601,31 @@ public class LobbyManager : NetworkBehaviour
         }
         else
         {
-            // 🥽 EN LOS VISORES META QUEST:
+            // 🥽 EN LAS META QUEST (REINICIO A PANTALLA INICIAL SIMPLIFICADA):
+
+            // A) Devolver el visor VR a las coordenadas iniciales del mapa
             GameObject miXR = GameObject.Find("XR_Origin_LOCAL");
-            if (miXR != null) miXR.SetActive(true);
+            if (miXR != null)
+            {
+                miXR.transform.position = posInicialXR;
+                miXR.transform.rotation = rotInicialXR;
+                miXR.SetActive(true);
+            }
 
+            // B) Ocultar sub-paneles de colores, dev y espera
             if (panelDevModo) panelDevModo.SetActive(false);
-            if (panelEspera) panelEspera.SetActive(false);
             if (panelColores) panelColores.SetActive(false);
+            if (panelEspera) panelEspera.SetActive(false);
 
+            // C) 🌟 MOSTRAR EL PANEL DE INICIO SIMPLIFICADO (Primer paso)
             if (panelInicioSimplificado) panelInicioSimplificado.SetActive(true);
 
+            // D) Bloquear el botón continuar
             if (btnContinuar != null) btnContinuar.interactable = false;
+
+            // E) Refrescar la lista de conectados
+            ActualizarListaJugadoresUI();
+            ActualizarUIBotonesColores();
         }
     }
 

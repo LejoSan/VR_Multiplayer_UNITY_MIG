@@ -329,26 +329,29 @@ public class MainGameManager : NetworkBehaviour
         CancelInvoke();
         if (audioSource != null) audioSource.Stop();
 
-        // 2. Desactivar todos los bloques de la simulación en 3D
+        // 2. 🌟 ENCENDER EL BLOQUE 1 (Contiene el Canvas con todos los paneles VR)
+        if (bloqueInicio != null) bloqueInicio.SetActive(true);
+
+        // 3. Desactivar los bloques secundarios de la simulación 3D
         if (bloqueRobot != null) bloqueRobot.SetActive(false);
         if (bloqueInstrucciones != null) bloqueInstrucciones.SetActive(false);
         if (bloqueGameplay != null) bloqueGameplay.SetActive(false);
         if (bloqueVictoria != null) bloqueVictoria.SetActive(false);
         if (entornoVR != null) entornoVR.SetActive(false);
 
-        // 3. Si eres el Servidor, resetear las variables de red
+        // 4. Si eres el Servidor, resetear las variables de red
         if (IsServer)
         {
             estadoActual.Value = EstadoJuego.EsperandoLobby;
             jugadoresListos.Value = 0;
         }
 
-        // 4. Mandar a limpiar las pistolas y asteroides a GameplayManager
+        // 5. Mandar a limpiar las pistolas y asteroides a GameplayManager
         if (GameplayManager.Instance != null)
         {
             GameplayManager.Instance.LimpiarGameplayParaReset();
         }
 
-        Debug.Log("<color=cyan>[MAIN GAME MANAGER]</color> Proyecto restablecido al estado cero.");
+        Debug.Log("<color=cyan>[MAIN GAME MANAGER]</color> Bloque 1 reactivado y proyecto restablecido a estado cero.");
     }
 }
