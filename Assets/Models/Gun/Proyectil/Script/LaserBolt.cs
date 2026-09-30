@@ -30,20 +30,42 @@ public class LaserBolt : NetworkBehaviour
         idDueño.OnValueChanged += (viejoID, nuevoID) => AplicarColorDelTirador(nuevoID);
     }
 
-    private void AplicarColorDelTirador(ulong idTirador)
-    {
-        if (LobbyManager.Instance != null && idTirador != 999)
-        {
-            Color colorTirador = LobbyManager.Instance.ObtenerColorPorID(idTirador);
-            if (renderLaser != null && renderLaser.material != null)
-            {
-                if (renderLaser.material.HasProperty("_BaseColor")) renderLaser.material.SetColor("_BaseColor", colorTirador);
-                else renderLaser.material.color = colorTirador;
+    //private void AplicarColorDelTirador(ulong idTirador)
+    //{
+    //    if (LobbyManager.Instance != null && idTirador != 999)
+    //    {
+    //        Color colorTirador = LobbyManager.Instance.ObtenerColorPorID(idTirador);
+    //        if (renderLaser != null && renderLaser.material != null)
+    //        {
+    //            if (renderLaser.material.HasProperty("_BaseColor")) renderLaser.material.SetColor("_BaseColor", colorTirador);
+    //            else renderLaser.material.color = colorTirador;
 
+    //            renderLaser.material.SetColor("_EmissionColor", colorTirador * 2.5f);
+    //        }
+    //    }
+    //}
+    private void AplicarColorDelTirador(ulong idTirador)
+{
+    if (LobbyManager.Instance != null && idTirador != 999)
+    {
+        Color colorTirador = LobbyManager.Instance.ObtenerColorPorID(idTirador);
+        if (renderLaser != null && renderLaser.material != null)
+        {
+            if (renderLaser.material.HasProperty("_BaseColor")) renderLaser.material.SetColor("_BaseColor", colorTirador);
+            else renderLaser.material.color = colorTirador;
+
+            // 🌟 Excepción para el Naranja: Usa exactamente los valores de la imagen (R:186, G:20, B:0)
+            if (colorTirador == (Color)new Color32(245, 128, 39, 255))
+            {
+                renderLaser.material.SetColor("_EmissionColor", new Color32(186, 20, 0, 255));
+            }
+            else
+            {
                 renderLaser.material.SetColor("_EmissionColor", colorTirador * 2.5f);
             }
         }
     }
+}
 
     void Update()
     {

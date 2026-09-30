@@ -237,24 +237,75 @@ public class MainGameManager : NetworkBehaviour
             botonReiniciarHost.SetActive(IsServer);
         }
     }
+    //private void GenerarPodioDeJugadores()
+    //{
+    //    if (textoResultados == null) return;
+
+    //    // Cabecera limpia y estilizada al estilo de tu menú de conectados
+    //    string podioText = "<size=110%><b>PODIO DE LA SIMULACIÓN:</b></size>\n\n";
+
+    //    // 1. Filtramos los clientes conectados con un avatar físico real
+    //    var listaJugadoresValidos = new System.Collections.Generic.List<NetworkClient>();
+    //    foreach (var cliente in NetworkManager.Singleton.ConnectedClientsList)
+    //    {
+    //        if (cliente.PlayerObject != null)
+    //        {
+    //            listaJugadoresValidos.Add(cliente);
+    //        }
+    //    }
+
+    //    // 2. Ordenamos el podio por puntuación de mayor a menor leyendo desde PlayerAvatarSync
+    //    var jugadoresOrdenados = listaJugadoresValidos.OrderByDescending(c => {
+    //        PlayerNetworkState estado = c.PlayerObject.GetComponent<PlayerNetworkState>();
+    //        return estado != null ? estado.puntuacion.Value : 0;
+    //    }).ToList();
+
+    //    int puesto = 1;
+    //    foreach (var cliente in jugadoresOrdenados)
+    //    {
+    //        PlayerNetworkState estado = cliente.PlayerObject.GetComponent<PlayerNetworkState>();
+    //        if (estado != null)
+    //        {
+    //            string nombreColorTexto = "VR";
+    //            string colorTag = "white";
+
+    //            if (LobbyManager.Instance != null)
+    //            {
+    //                Color colorRealDelJugador = LobbyManager.Instance.ObtenerColorPorID(cliente.ClientId);
+    //                if (colorRealDelJugador == Color.red) { colorTag = "red"; nombreColorTexto = "Rojo"; }
+    //                else if (colorRealDelJugador == Color.blue) { colorTag = "blue"; nombreColorTexto = "Azul"; }
+    //                else if (colorRealDelJugador == Color.green) { colorTag = "green"; nombreColorTexto = "Verde"; }
+    //                else if (colorRealDelJugador == Color.yellow) { colorTag = "yellow"; nombreColorTexto = "Amarillo"; }
+    //            }
+
+    //            podioText += $"<size=130%><color={colorTag}>■</color></size>  <color=white><b>Puesto {puesto}</b>  -  Jugador VR ({nombreColorTexto}):  <b>{estado.puntuacion.Value} pts</b></color>\n\n";
+    //        }
+    //        puesto++;
+    //    }
+
+    //    // 4. Inyectamos el string definitivo en el Canvas del podio final
+    //    textoResultados.text = podioText;
+    //}
     private void GenerarPodioDeJugadores()
     {
         if (textoResultados == null) return;
 
-        // Cabecera limpia y estilizada al estilo de tu menú de conectados
         string podioText = "<size=110%><b>PODIO DE LA SIMULACIÓN:</b></size>\n\n";
 
-        // 1. Filtramos los clientes conectados con un avatar físico real
+        // 1. Filtramos los clientes conectados con un avatar VR físico real
         var listaJugadoresValidos = new System.Collections.Generic.List<NetworkClient>();
-        foreach (var cliente in NetworkManager.Singleton.ConnectedClientsList)
+        if (NetworkManager.Singleton != null)
         {
-            if (cliente.PlayerObject != null)
+            foreach (var cliente in NetworkManager.Singleton.ConnectedClientsList)
             {
-                listaJugadoresValidos.Add(cliente);
+                if (cliente.PlayerObject != null)
+                {
+                    listaJugadoresValidos.Add(cliente);
+                }
             }
         }
 
-        // 2. Ordenamos el podio por puntuación de mayor a menor leyendo desde PlayerAvatarSync
+        // 2. Ordenamos el podio por puntuación de mayor a menor leyendo desde PlayerNetworkState
         var jugadoresOrdenados = listaJugadoresValidos.OrderByDescending(c => {
             PlayerNetworkState estado = c.PlayerObject.GetComponent<PlayerNetworkState>();
             return estado != null ? estado.puntuacion.Value : 0;
@@ -267,23 +318,27 @@ public class MainGameManager : NetworkBehaviour
             if (estado != null)
             {
                 string nombreColorTexto = "VR";
-                string colorTag = "white";
+                string hexColor = "FFFFFF";
 
                 if (LobbyManager.Instance != null)
                 {
-                    Color colorRealDelJugador = LobbyManager.Instance.ObtenerColorPorID(cliente.ClientId);
-                    if (colorRealDelJugador == Color.red) { colorTag = "red"; nombreColorTexto = "Rojo"; }
-                    else if (colorRealDelJugador == Color.blue) { colorTag = "blue"; nombreColorTexto = "Azul"; }
-                    else if (colorRealDelJugador == Color.green) { colorTag = "green"; nombreColorTexto = "Verde"; }
-                    else if (colorRealDelJugador == Color.yellow) { colorTag = "yellow"; nombreColorTexto = "Amarillo"; }
+                    Color colorReal = LobbyManager.Instance.ObtenerColorPorID(cliente.ClientId);
+                    hexColor = ColorUtility.ToHtmlStringRGB(colorReal);
+
+                    if (colorReal == Color.red) nombreColorTexto = "Rojo";
+                    else if (colorReal == Color.blue) nombreColorTexto = "Azul";
+                    else if (colorReal == Color.green) nombreColorTexto = "Verde";
+                    else if (colorReal == Color.yellow) nombreColorTexto = "Amarillo";
+                    else if (colorReal == (Color)new Color32(245, 128, 39, 255) || colorReal == new Color(1.0f, 0.5f, 0.0f)) nombreColorTexto = "Naranja";
+                    else if (colorReal == new Color(0.5f, 0.0f, 0.5f)) nombreColorTexto = "Morado";
                 }
 
-                podioText += $"<size=130%><color={colorTag}>■</color></size>  <color=white><b>Puesto {puesto}</b>  -  Jugador VR ({nombreColorTexto}):  <b>{estado.puntuacion.Value} pts</b></color>\n\n";
+                podioText += $"<size=130%><color=#{hexColor}>■</color></size>  <color=white><b>Puesto {puesto}</b>  -  Jugador VR ({nombreColorTexto}):  <b>{estado.puntuacion.Value} pts</b></color>\n\n";
             }
             puesto++;
         }
 
-        // 4. Inyectamos el string definitivo en el Canvas del podio final
+        // 3. Inyectamos el texto en el Canvas final
         textoResultados.text = podioText;
     }
 

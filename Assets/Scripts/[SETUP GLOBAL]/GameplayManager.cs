@@ -41,7 +41,7 @@ public class GameplayManager : NetworkBehaviour
             foreach (Transform child in contenedorSpawners) puntosDeSpawnAsteroides.Add(child);
         }
 
-        // Llenamos los puntos de spawn de jugadores
+        // Llenamos los puntos de spawn de jugadores (Asegúrate de tener 6 objetos hijos en Unity)
         if (contenedorSpawnJugadores != null)
         {
             foreach (Transform child in contenedorSpawnJugadores) puntosDeSpawnJugadores.Add(child);
@@ -67,37 +67,58 @@ public class GameplayManager : NetworkBehaviour
 
         if (entornoJuego) entornoJuego.SetActive(true);
 
-        Debug.Log("[SERVER] Bloque 4 Iniciado. Teletransportando jugadores locales y creando armas...");
+        Debug.Log("[SERVER] Bloque 4 Iniciado. Teletransportando jugadores VR y creando armas...");
 
-        // 1. Enviamos la orden a todos los clientes (Mueve la posición y activa los colores de los avatares)
-        MoverJugadoresAPuntosClientRpc();
+        // 1. Obtener la lista exclusiva de IDs de visores VR (excluyendo el Móvil Admin)
+        List<ulong> idsJugadoresVR = ObtenerIDsJugadoresVR();
 
-        // 2. El servidor crea las armas frente a los puntos de spawn correspondientes
-        SpawnArmasEnPuntos();
+        // 2. Enviamos la orden a todos los clientes pasando la lista ordenada de visores VR
+        MoverJugadoresAPuntosClientRpc(idsJugadoresVR.ToArray());
 
-        // 3. Arrancamos los asteroides
+        // 3. El servidor crea las armas asignando correctamente cada punto a su jugador VR
+        SpawnArmasEnPuntos(idsJugadoresVR);
+
+        // 4. Arrancamos los asteroides
         StartCoroutine(RutinaSpawn());
     }
 
-    [ClientRpc]
-    private void MoverJugadoresAPuntosClientRpc()
+    private List<ulong> ObtenerIDsJugadoresVR()
     {
-        // Cada jugador busca su propio XR_Origin_LOCAL en su escena
-        GameObject miXR = GameObject.Find("XR_Origin_LOCAL");
-        if (miXR != null)
+        List<ulong> listaVR = new List<ulong>();
+        if (NetworkManager.Singleton != null)
         {
-            int miID = (int)NetworkManager.Singleton.LocalClientId;
-
-            if (miID < puntosDeSpawnJugadores.Count)
+            foreach (var client in NetworkManager.Singleton.ConnectedClientsList)
             {
-                miXR.transform.position = puntosDeSpawnJugadores[miID].position;
-                miXR.transform.rotation = puntosDeSpawnJugadores[miID].rotation;
-                Debug.Log($"[CLIENTE] Teletransportado con éxito al punto de spawn: {miID}");
+                // Solo incluimos a los clientes que son Visores VR (tienen PlayerObject instanciado)
+                if (client.PlayerObject != null)
+                {
+                    listaVR.Add(client.ClientId);
+                }
+            }
+        }
+        return listaVR;
+    }
+
+    [ClientRpc]
+    private void MoverJugadoresAPuntosClientRpc(ulong[] idsJugadoresVR)
+    {
+        GameObject miXR = GameObject.Find("XR_Origin_LOCAL");
+        if (miXR != null && NetworkManager.Singleton != null)
+        {
+            ulong miID = NetworkManager.Singleton.LocalClientId;
+
+            // Buscamos cuál es nuestro índice relativo entre los jugadores VR conectados (0, 1, 2, 3, 4 o 5)
+            int miIndiceVR = System.Array.IndexOf(idsJugadoresVR, miID);
+
+            if (miIndiceVR >= 0 && miIndiceVR < puntosDeSpawnJugadores.Count)
+            {
+                miXR.transform.position = puntosDeSpawnJugadores[miIndiceVR].position;
+                miXR.transform.rotation = puntosDeSpawnJugadores[miIndiceVR].rotation;
+                Debug.Log($"[CLIENTE] Teletransportado con éxito al punto de spawn VR índice: {miIndiceVR}");
             }
         }
 
-        // 🌟 SOLUCIÓN CLIENTES MULTIJUGADOR: Forzamos a que todos los clientes y el host 
-        // despierten las mallas y pinten los colores de los avatares en sus propias pantallas al mismo tiempo
+        // Forzamos a que todos los avatares despierten sus mallas y colores
         var todosLosAvatares = FindObjectsByType<PlayerAvatarSync>(FindObjectsSortMode.None);
         foreach (var avatar in todosLosAvatares)
         {
@@ -108,33 +129,29 @@ public class GameplayManager : NetworkBehaviour
         }
     }
 
-    private void SpawnArmasEnPuntos()
+    private void SpawnArmasEnPuntos(List<ulong> idsJugadoresVR)
     {
-        if (!IsServer) return;
-        if (prefabArma == null) return;
+        if (!IsServer || prefabArma == null) return;
 
         armasSpawneadas.Clear();
 
-        foreach (var client in NetworkManager.Singleton.ConnectedClientsList)
+        for (int i = 0; i < idsJugadoresVR.Count; i++)
         {
-            int idJugador = (int)client.ClientId;
-
-            if (idJugador < puntosDeSpawnJugadores.Count)
+            if (i < puntosDeSpawnJugadores.Count)
             {
-                Transform puntoSpawn = puntosDeSpawnJugadores[idJugador];
+                ulong idClienteVR = idsJugadoresVR[i];
+                Transform puntoSpawn = puntosDeSpawnJugadores[i];
 
-                // El Servidor instancia el arma en el punto de spawn del jugador
+                // El Servidor instancia el arma en el punto de spawn del jugador VR correspondiente
                 GameObject miArma = Instantiate(prefabArma, puntoSpawn.position, puntoSpawn.rotation);
                 NetworkObject netObj = miArma.GetComponent<NetworkObject>();
 
                 if (netObj != null)
                 {
-                    // Al nacer con la propiedad (Ownership) asignada al cliente, 
-                    // el script Arma.cs del cliente se la pegará automáticamente a su mano local
-                    netObj.SpawnWithOwnership(client.ClientId, true);
+                    netObj.SpawnWithOwnership(idClienteVR, true);
                     armasSpawneadas.Add(netObj);
 
-                    Debug.Log($"[SERVER] Arma creada y asignada al Jugador ID: {idJugador}");
+                    Debug.Log($"[SERVER] Arma creada en Punto {i} y asignada al Jugador VR ID: {idClienteVR}");
                 }
             }
         }
@@ -173,7 +190,6 @@ public class GameplayManager : NetworkBehaviour
 
     void SpawnObjetivoEnRed()
     {
-        // 🌟 SEGURO MULTIJUGADOR GLOBAL: Si el gestor de red está apagado o colapsado, abortamos para no congelar el juego
         if (NetworkManager.Singleton == null || !NetworkManager.Singleton.IsListening)
         {
             Debug.LogWarning("[GAMEPLAY MANAGER] Esperando que el NetworkManager esté completamente activo...");
@@ -187,7 +203,6 @@ public class GameplayManager : NetworkBehaviour
 
         if (asteroideElegido != null)
         {
-            // Comprobación previa del componente de red en el prefab original
             if (asteroideElegido.GetComponent<NetworkObject>() == null)
             {
                 Debug.LogError($"[GAMEPLAY MANAGER] ¡Alerta Crítica! El prefab '{asteroideElegido.name}' no tiene un componente NetworkObject.");
@@ -195,14 +210,11 @@ public class GameplayManager : NetworkBehaviour
             }
 
             GameObject nuevoAsteroide = Instantiate(asteroideElegido, puntoAleatorio.position, puntoAleatorio.rotation);
-
-            // Buscamos de forma ultra-segura el componente en el clon creado
             NetworkObject netObj = nuevoAsteroide.GetComponent<NetworkObject>() ?? nuevoAsteroide.GetComponentInChildren<NetworkObject>();
 
-            // 🌟 VALIDACIÓN DE SEGURIDAD: Verificamos de forma independiente que existan tanto el objeto como el servidor
             if (netObj != null && NetworkManager.Singleton != null && NetworkManager.Singleton.IsServer)
             {
-                netObj.Spawn(true); // Spawnea de forma segura en toda la red
+                netObj.Spawn(true);
             }
         }
     }
@@ -214,14 +226,12 @@ public class GameplayManager : NetworkBehaviour
         juegoActivo = false;
         StopAllCoroutines();
 
-        // Limpieza de armas (Bloque 5)
         foreach (var armaNetObj in armasSpawneadas)
         {
             if (armaNetObj != null && armaNetObj.IsSpawned) armaNetObj.Despawn();
         }
         armasSpawneadas.Clear();
 
-        // Limpieza de asteroides
         var objetivos = FindObjectsByType<AsteroidTarget>(FindObjectsSortMode.None);
         foreach (var obj in objetivos)
         {
@@ -231,7 +241,6 @@ public class GameplayManager : NetworkBehaviour
         if (MainGameManager.Instance != null) MainGameManager.Instance.FinalizarExperienciaCompleta();
     }
 
-    // 🌟 MÉTODO DE LIMPIEZA DE ARMAS Y ASTEROIDES
     public void LimpiarGameplayParaReset()
     {
         juegoActivo = false;
@@ -239,17 +248,14 @@ public class GameplayManager : NetworkBehaviour
 
         if (entornoJuego != null) entornoJuego.SetActive(false);
 
-        // Limpieza exclusiva del servidor (Despawnear objetos en la red)
         if (IsServer)
         {
-            // Borrar armas instanciadas
             foreach (var armaNetObj in armasSpawneadas)
             {
                 if (armaNetObj != null && armaNetObj.IsSpawned) armaNetObj.Despawn();
             }
             armasSpawneadas.Clear();
 
-            // Borrar asteroides en pantalla
             var objetivos = FindObjectsByType<AsteroidTarget>(FindObjectsSortMode.None);
             foreach (var obj in objetivos)
             {
