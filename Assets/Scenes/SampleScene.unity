@@ -11805,6 +11805,8 @@ MonoBehaviour:
   textoResultados: {fileID: 550592942}
   botonReiniciarHost: {fileID: 552645912}
   tiempoEntrada: 2
+  dissolveController: {fileID: 2255095262166456445}
+  tiempoAnimacionPreviaDisparo: 5
 --- !u!4 &1688462061
 Transform:
   m_ObjectHideFlags: 0
@@ -13115,7 +13117,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 6598815579406187037, guid: 18ddb545287c546e19cc77dc9fbb2189, type: 3}
       propertyPath: m_IsActive
-      value: 0
+      value: 1
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
@@ -15693,6 +15695,10 @@ PrefabInstance:
       propertyPath: m_IsActive
       value: 1
       objectReference: {fileID: 0}
+    - target: {fileID: 8477621397962818355, guid: 1d6a323e4774c9e4991815ec07b00d37, type: 3}
+      propertyPath: duracionAparicion
+      value: 5
+      objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
@@ -15717,6 +15723,17 @@ Transform:
   m_CorrespondingSourceObject: {fileID: 5652482021822803215, guid: 1d6a323e4774c9e4991815ec07b00d37, type: 3}
   m_PrefabInstance: {fileID: 2255095262166456442}
   m_PrefabAsset: {fileID: 0}
+--- !u!114 &2255095262166456445 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 8477621397962818355, guid: 1d6a323e4774c9e4991815ec07b00d37, type: 3}
+  m_PrefabInstance: {fileID: 2255095262166456442}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2255095262166456443}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d1475729810dd9149b3cc4d8f0b10976, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::EnvironmentDissolveController
 --- !u!23 &7634941337726050260 stripped
 MeshRenderer:
   m_CorrespondingSourceObject: {fileID: 1154629233121423276, guid: 9b957b04178a5944b825b7956a76d540, type: 3}

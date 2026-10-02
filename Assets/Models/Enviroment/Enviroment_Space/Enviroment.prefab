@@ -2727,6 +2727,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 5652482021822803215}
+  - component: {fileID: 8477621397962818355}
   m_Layer: 0
   m_Name: Enviroment
   m_TagString: Untagged
@@ -2754,6 +2755,22 @@ Transform:
   - {fileID: 6474654589432917270}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &8477621397962818355
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7897229321676355829}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d1475729810dd9149b3cc4d8f0b10976, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::EnvironmentDissolveController
+  nombrePropiedadShader: 4_DissolveFx_Green
+  valorDisuelto: 1
+  valorVisible: 0
+  duracionAparicion: 5
 --- !u!1 &8944041563950214561
 GameObject:
   m_ObjectHideFlags: 0

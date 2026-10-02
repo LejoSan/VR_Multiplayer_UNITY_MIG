@@ -41,17 +41,47 @@ public class MainGameManager : NetworkBehaviour
 
     public float tiempoEntrada = 5.0f;
 
+    [Header("--- Efecto Dissolve / Materialización ---")]
+    public EnvironmentDissolveController dissolveController;
+    public float tiempoAnimacionPreviaDisparo = 3.0f; // Tiempo de respaldo si no hay cuenta regresiva
+
+    [Header("--- Cuenta Regresiva VR (3, 2, 1) ---")]
+    public CuentaRegresivaVR cuentaRegresiva;
+
+    [Header("--- Audio Locución Final ---")]
+    public AudioClip audioVamosADisparar;
+
+    //void Awake()
+    //{
+    //    if (Instance == null)
+    //    {
+    //        Instance = this;
+    //        // 🌟 FUSIÓN: Solo el mánager único y original sobrevive al cambio de escena
+    //        DontDestroyOnLoad(gameObject);
+    //    }
+    //    else
+    //    {
+    //        // Los clones duplicados que intenten colarse al recargar el mapa se eliminan en el acto
+    //        Destroy(gameObject);
+    //    }
+    //}
     void Awake()
     {
         if (Instance == null)
         {
             Instance = this;
-            // 🌟 FUSIÓN: Solo el mánager único y original sobrevive al cambio de escena
             DontDestroyOnLoad(gameObject);
+
+            // 🌟 SOLUCIÓN DE AUDIO: Garantiza un AudioSource propio en GameManager que NUNCA se desactiva
+            AudioSource audioPropio = GetComponent<AudioSource>();
+            if (audioPropio == null)
+            {
+                audioPropio = gameObject.AddComponent<AudioSource>();
+            }
+            audioSource = audioPropio;
         }
         else
         {
-            // Los clones duplicados que intenten colarse al recargar el mapa se eliminan en el acto
             Destroy(gameObject);
         }
     }
@@ -201,9 +231,76 @@ public class MainGameManager : NetworkBehaviour
 
     IEnumerator SecuenciaTransicionAVR()
     {
+        // 1. Animación de salida del Robot
         if (robotAnimator) robotAnimator.SetTrigger("Trig_Jugar");
         yield return new WaitForSeconds(2.0f);
-        SaltarDirectoAGameplayLocal();
+
+        // 2. Apagar elementos de inicio
+        if (bloqueRobot) bloqueRobot.SetActive(false);
+        if (bloqueInicio) bloqueInicio.SetActive(false);
+
+        // 3. Activar el entorno VR y el modo de vista VR
+        ActivarModoVR();
+        if (entornoVR) entornoVR.SetActive(true);
+        if (bloqueGameplay) bloqueGameplay.SetActive(true);
+
+        // -------------------------------------------------------------
+        // 🌟 PASO 1: GENERACIÓN DEL MUNDO (Shader + SFX del mundo)
+        // -------------------------------------------------------------
+        if (dissolveController != null)
+        {
+            dissolveController.ResetearAInvisibilidad();
+            dissolveController.IniciarAparicionGradual();
+
+            // Esperamos los segundos exactos que dura la animación del shader
+            yield return new WaitForSeconds(dissolveController.duracionAparicion);
+        }
+
+        // 🛑 PAUSA DE 1 SEGUNDO ENTRE MUNDO Y CONTEO
+        yield return new WaitForSeconds(1.0f);
+
+        // -------------------------------------------------------------
+        // 🌟 PASO 2: CONTEO 3, 2, 1 (1 segundo por cada número con Beep)
+        // -------------------------------------------------------------
+        if (cuentaRegresiva != null)
+        {
+            yield return StartCoroutine(cuentaRegresiva.RutinaCuentaRegresiva());
+        }
+
+        // -------------------------------------------------------------
+        // 🌟 PASO 3: LOCUCIÓN "MAYRIT VAMOS A DISPARAR"
+        // -------------------------------------------------------------
+        if (audioVamosADisparar != null)
+        {
+            // Si por alguna razón el AudioSource fallara, usamos PlayClipAtPoint como respaldo indestructible
+            if (audioSource != null && audioSource.enabled && audioSource.gameObject.activeInHierarchy)
+            {
+                audioSource.PlayOneShot(audioVamosADisparar);
+            }
+            else
+            {
+                Vector3 posCamara = Camera.main != null ? Camera.main.transform.position : Vector3.zero;
+                AudioSource.PlayClipAtPoint(audioVamosADisparar, posCamara);
+            }
+
+            Debug.Log("<color=green>[AUDIO SUCCESS]</color> Reproduciendo locución: Vamos a disparar.");
+
+            // Esperamos los segundos exactos de la voz
+            yield return new WaitForSeconds(audioVamosADisparar.length);
+        }
+        else
+        {
+            Debug.LogWarning("<color=orange>[AUDIO ALERTA]</color> Falta asignar 'Audio Vamos A Disparar' en el Inspector.");
+            yield return new WaitForSeconds(1.0f);
+        }
+
+        // -------------------------------------------------------------
+        // 🌟 PASO 4: ¡EMPIEZA EL JUEGO Y LOS DISPAROS!
+        // -------------------------------------------------------------
+        if (IsServer && GameplayManager.Instance != null)
+        {
+            GameplayManager.Instance.IniciarPartida();
+        }
     }
 
     private void SaltarDirectoAGameplayLocal()
@@ -212,6 +309,11 @@ public class MainGameManager : NetworkBehaviour
         ActivarModoVR();
         if (entornoVR) entornoVR.SetActive(true);
         if (bloqueGameplay) bloqueGameplay.SetActive(true);
+
+        if (dissolveController != null)
+        {
+            dissolveController.IniciarAparicionGradual();
+        }
 
         if (IsServer && GameplayManager.Instance != null)
         {
@@ -237,55 +339,7 @@ public class MainGameManager : NetworkBehaviour
             botonReiniciarHost.SetActive(IsServer);
         }
     }
-    //private void GenerarPodioDeJugadores()
-    //{
-    //    if (textoResultados == null) return;
 
-    //    // Cabecera limpia y estilizada al estilo de tu menú de conectados
-    //    string podioText = "<size=110%><b>PODIO DE LA SIMULACIÓN:</b></size>\n\n";
-
-    //    // 1. Filtramos los clientes conectados con un avatar físico real
-    //    var listaJugadoresValidos = new System.Collections.Generic.List<NetworkClient>();
-    //    foreach (var cliente in NetworkManager.Singleton.ConnectedClientsList)
-    //    {
-    //        if (cliente.PlayerObject != null)
-    //        {
-    //            listaJugadoresValidos.Add(cliente);
-    //        }
-    //    }
-
-    //    // 2. Ordenamos el podio por puntuación de mayor a menor leyendo desde PlayerAvatarSync
-    //    var jugadoresOrdenados = listaJugadoresValidos.OrderByDescending(c => {
-    //        PlayerNetworkState estado = c.PlayerObject.GetComponent<PlayerNetworkState>();
-    //        return estado != null ? estado.puntuacion.Value : 0;
-    //    }).ToList();
-
-    //    int puesto = 1;
-    //    foreach (var cliente in jugadoresOrdenados)
-    //    {
-    //        PlayerNetworkState estado = cliente.PlayerObject.GetComponent<PlayerNetworkState>();
-    //        if (estado != null)
-    //        {
-    //            string nombreColorTexto = "VR";
-    //            string colorTag = "white";
-
-    //            if (LobbyManager.Instance != null)
-    //            {
-    //                Color colorRealDelJugador = LobbyManager.Instance.ObtenerColorPorID(cliente.ClientId);
-    //                if (colorRealDelJugador == Color.red) { colorTag = "red"; nombreColorTexto = "Rojo"; }
-    //                else if (colorRealDelJugador == Color.blue) { colorTag = "blue"; nombreColorTexto = "Azul"; }
-    //                else if (colorRealDelJugador == Color.green) { colorTag = "green"; nombreColorTexto = "Verde"; }
-    //                else if (colorRealDelJugador == Color.yellow) { colorTag = "yellow"; nombreColorTexto = "Amarillo"; }
-    //            }
-
-    //            podioText += $"<size=130%><color={colorTag}>■</color></size>  <color=white><b>Puesto {puesto}</b>  -  Jugador VR ({nombreColorTexto}):  <b>{estado.puntuacion.Value} pts</b></color>\n\n";
-    //        }
-    //        puesto++;
-    //    }
-
-    //    // 4. Inyectamos el string definitivo en el Canvas del podio final
-    //    textoResultados.text = podioText;
-    //}
     private void GenerarPodioDeJugadores()
     {
         if (textoResultados == null) return;
@@ -369,6 +423,11 @@ public class MainGameManager : NetworkBehaviour
 
         if (entornoVR) entornoVR.SetActive(true);
         if (bloqueGameplay) bloqueGameplay.SetActive(true);
+
+        if (dissolveController != null)
+        {
+            dissolveController.IniciarAparicionGradual();
+        }
 
         if (GameplayManager.Instance != null)
         {
