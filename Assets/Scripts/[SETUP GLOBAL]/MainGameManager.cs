@@ -264,15 +264,51 @@ public class MainGameManager : NetworkBehaviour
         // -------------------------------------------------------------
         if (cuentaRegresiva != null)
         {
+            // 🔧 Enciende explícitamente el GameObject de la cuenta atrás desde MainGameManager
+            cuentaRegresiva.gameObject.SetActive(true);
+
             yield return StartCoroutine(cuentaRegresiva.RutinaCuentaRegresiva());
         }
 
+        //// -------------------------------------------------------------
+        //// 🌟 PASO 3: LOCUCIÓN "MAYRIT VAMOS A DISPARAR"
+        //// -------------------------------------------------------------
+        //if (audioVamosADisparar != null)
+        //{
+        //    // Si por alguna razón el AudioSource fallara, usamos PlayClipAtPoint como respaldo indestructible
+        //    if (audioSource != null && audioSource.enabled && audioSource.gameObject.activeInHierarchy)
+        //    {
+        //        audioSource.PlayOneShot(audioVamosADisparar);
+        //    }
+        //    else
+        //    {
+        //        Vector3 posCamara = Camera.main != null ? Camera.main.transform.position : Vector3.zero;
+        //        AudioSource.PlayClipAtPoint(audioVamosADisparar, posCamara);
+        //    }
+
+        //    Debug.Log("<color=green>[AUDIO SUCCESS]</color> Reproduciendo locución: Vamos a disparar.");
+
+        //    // Esperamos los segundos exactos de la voz
+        //    yield return new WaitForSeconds(audioVamosADisparar.length);
+        //}
+        //else
+        //{
+        //    Debug.LogWarning("<color=orange>[AUDIO ALERTA]</color> Falta asignar 'Audio Vamos A Disparar' en el Inspector.");
+        //    yield return new WaitForSeconds(1.0f);
+        //}
+
+        //// -------------------------------------------------------------
+        //// 🌟 PASO 4: ¡EMPIEZA EL JUEGO Y LOS DISPAROS!
+        //// -------------------------------------------------------------
+        //if (IsServer && GameplayManager.Instance != null)
+        //{
+        //    GameplayManager.Instance.IniciarPartida();
+        //}
         // -------------------------------------------------------------
         // 🌟 PASO 3: LOCUCIÓN "MAYRIT VAMOS A DISPARAR"
         // -------------------------------------------------------------
         if (audioVamosADisparar != null)
         {
-            // Si por alguna razón el AudioSource fallara, usamos PlayClipAtPoint como respaldo indestructible
             if (audioSource != null && audioSource.enabled && audioSource.gameObject.activeInHierarchy)
             {
                 audioSource.PlayOneShot(audioVamosADisparar);
@@ -283,20 +319,18 @@ public class MainGameManager : NetworkBehaviour
                 AudioSource.PlayClipAtPoint(audioVamosADisparar, posCamara);
             }
 
-            Debug.Log("<color=green>[AUDIO SUCCESS]</color> Reproduciendo locución: Vamos a disparar.");
-
-            // Esperamos los segundos exactos de la voz
             yield return new WaitForSeconds(audioVamosADisparar.length);
         }
-        else
-        {
-            Debug.LogWarning("<color=orange>[AUDIO ALERTA]</color> Falta asignar 'Audio Vamos A Disparar' en el Inspector.");
-            yield return new WaitForSeconds(1.0f);
-        }
 
         // -------------------------------------------------------------
-        // 🌟 PASO 4: ¡EMPIEZA EL JUEGO Y LOS DISPAROS!
+        // 🌟 PASO 4: CAMBIO A MANOS E INICIO DE PARTIDA
         // -------------------------------------------------------------
+        // 🖐️ Cambiamos la visualización de los Mandos a las Manos justo al iniciar los disparos
+        if (VRHandControllerSwitcher.Instance != null)
+        {
+            VRHandControllerSwitcher.Instance.ActivarModoManos();
+        }
+
         if (IsServer && GameplayManager.Instance != null)
         {
             GameplayManager.Instance.IniciarPartida();
@@ -464,6 +498,12 @@ public class MainGameManager : NetworkBehaviour
         if (GameplayManager.Instance != null)
         {
             GameplayManager.Instance.LimpiarGameplayParaReset();
+        }
+
+        // Al reiniciar a estado cero, volvemos a poner los mandos/joysticks iniciales
+        if (VRHandControllerSwitcher.Instance != null)
+        {
+            VRHandControllerSwitcher.Instance.ActivarModoMandos();
         }
 
         Debug.Log("<color=cyan>[MAIN GAME MANAGER]</color> Bloque 1 reactivado y proyecto restablecido a estado cero.");
