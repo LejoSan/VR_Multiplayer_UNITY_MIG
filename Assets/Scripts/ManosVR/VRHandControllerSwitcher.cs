@@ -60,6 +60,21 @@ public class VRHandControllerSwitcher : MonoBehaviour
         Debug.Log("<color=green>[VR SWITCHER]</color> Modo Manos Activado - Near/Far Interactors Bloqueados.");
     }
 
+    // 🚫 Oculta absolutamente todo (Manos, Mandos e Interactores) para la pantalla final
+    public void OcultarTodo()
+    {
+        if (mandoIzquierdo != null) mandoIzquierdo.SetActive(false);
+        if (mandoDerecho != null) mandoDerecho.SetActive(false);
+
+        if (manoIzquierda != null) manoIzquierda.SetActive(false);
+        if (manoDerecha != null) manoDerecha.SetActive(false);
+
+        SetInteractorEstado(nearFarInteractorIzquierdo, false);
+        SetInteractorEstado(nearFarInteractorDerecho, false);
+
+        Debug.Log("<color=red>[VR SWITCHER]</color> Manos y Mandos Ocultados para la Pantalla Final.");
+    }
+
     // 🔧 Método auxiliar para apagar tanto el GameObject como sus componentes de rayo
     private void SetInteractorEstado(GameObject interactorObj, bool estado)
     {

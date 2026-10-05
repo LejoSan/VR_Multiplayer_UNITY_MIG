@@ -194,7 +194,7 @@ public class MainGameManager : NetworkBehaviour
 
             if (totalJugadoresVR == 0) totalJugadoresVR = NetworkManager.Singleton.ConnectedClientsIds.Count;
 
-            textoContadorListos.text = $"Jugadores listos: {listos} / {totalJugadoresVR}";
+            textoContadorListos.text = $"{listos} / {totalJugadoresVR}";
             Debug.Log($"[READY CHECK] UI: {listos} de {totalJugadoresVR} jugadores VR.");
         }
     }
@@ -368,10 +368,16 @@ public class MainGameManager : NetworkBehaviour
 
         GenerarPodioDeJugadores();
 
-        if (botonReiniciarHost != null)
+        // 🖐️ 1. Ocultar las manos, mandos e interactores en el bloque final
+        if (VRHandControllerSwitcher.Instance != null)
         {
-            botonReiniciarHost.SetActive(IsServer);
+            VRHandControllerSwitcher.Instance.OcultarTodo();
         }
+
+        //if (botonReiniciarHost != null)
+        //{
+        //    botonReiniciarHost.SetActive(IsServer);
+        //}
     }
 
     private void GenerarPodioDeJugadores()
