@@ -20,27 +20,35 @@ public class EnvironmentDissolveController : MonoBehaviour
     void Awake()
     {
         propBlock = new MaterialPropertyBlock();
-        Renderer[] todos = GetComponentsInChildren<Renderer>(true);
-        foreach (var r in todos)
-        {
-            if (r != null) renderersEntorno.Add(r);
-        }
+        RefrescarRenderers();
 
-        // Si no se asignó un AudioSource en el Inspector, intentamos buscar uno local
         if (audioSource == null)
         {
             audioSource = GetComponent<AudioSource>();
         }
     }
 
-    public void ResetearAInvisibilidad()
+    // 🔄 Busca y guarda todos los renderers activos e inactivos en el árbol de este objeto
+    public void RefrescarRenderers()
     {
-        AplicarValorShader(0.0f); // 0 = Disuelto / Invisible
+        renderersEntorno.Clear();
+        Renderer[] todos = GetComponentsInChildren<Renderer>(true);
+        foreach (var r in todos)
+        {
+            if (r != null) renderersEntorno.Add(r);
+        }
     }
 
+    // 0.0f = Invisible
+    public void ResetearAInvisibilidad()
+    {
+        RefrescarRenderers();
+        AplicarValorShader(0.0f);
+    }
+
+    // Transición gradual de 0.0f (Invisible) a 1.0f (Visible)
     public void IniciarAparicionGradual(System.Action alTerminar = null)
     {
-        // 🌟 Reproduce el sonido una sola vez justo al iniciar la disolución
         ReproducirSonido();
         StartCoroutine(RutinaAparicion(alTerminar));
     }
@@ -62,19 +70,22 @@ public class EnvironmentDissolveController : MonoBehaviour
             tiempo += Time.deltaTime;
             float t = Mathf.Clamp01(tiempo / Mathf.Max(duracionAparicion, 0.0001f));
 
-            // Va desde 0.0f (Invisible) hasta 1.0f (Totalmente Visible)
+            // De 0.0f (Invisible) a 1.0f (Totalmente Visible)
             float valor = Mathf.Lerp(0.0f, 1.0f, Mathf.SmoothStep(0f, 1f, t));
 
             AplicarValorShader(valor);
             yield return null;
         }
 
-        AplicarValorShader(1.0f); // 1 = Totalmente Visible
+        // 🌟 Forzar 1.0f (Sólido/Visible) al terminar para garantizar visibilidad total
+        AplicarValorShader(1.0f);
         alTerminar?.Invoke();
     }
 
     private void AplicarValorShader(float valor)
     {
+        if (renderersEntorno.Count == 0) RefrescarRenderers();
+
         foreach (var rend in renderersEntorno)
         {
             if (rend != null)

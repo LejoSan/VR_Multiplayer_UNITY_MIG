@@ -124,18 +124,42 @@ public class MainGameManager : NetworkBehaviour
         StartCoroutine(SecuenciaIntroCorrutina());
     }
 
+    //IEnumerator SecuenciaIntroCorrutina()
+    //{
+    //    if (robotAnimator) robotAnimator.SetTrigger("Trig_Entrar");
+    //    yield return new WaitForSeconds(tiempoEntrada);
+
+    //    if (audioSource && audioIntroduccion)
+    //    {
+    //        audioSource.clip = audioIntroduccion;
+    //        audioSource.Play();
+    //        if (robotAnimator) robotAnimator.SetBool("EsHablando", true);
+    //        yield return new WaitForSeconds(audioIntroduccion.length);
+    //        if (robotAnimator) robotAnimator.SetBool("EsHablando", false);
+    //    }
+
+    //    if (IsServer)
+    //    {
+    //        estadoActual.Value = EstadoJuego.FaseInstrucciones;
+    //        ForzarFaseInstruccionesEnClientesClientRpc();
+    //    }
+    //}
     IEnumerator SecuenciaIntroCorrutina()
     {
-        if (robotAnimator) robotAnimator.SetTrigger("Trig_Entrar");
+        // 🔒 Comprobación de seguridad: verifica que el Animator tenga un Controller asignado antes de llamar comandos
+        bool tieneControllerValido = (robotAnimator != null && robotAnimator.runtimeAnimatorController != null);
+
+        if (tieneControllerValido) robotAnimator.SetTrigger("Trig_Entrar");
         yield return new WaitForSeconds(tiempoEntrada);
 
         if (audioSource && audioIntroduccion)
         {
             audioSource.clip = audioIntroduccion;
             audioSource.Play();
-            if (robotAnimator) robotAnimator.SetBool("EsHablando", true);
+
+            if (tieneControllerValido) robotAnimator.SetBool("EsHablando", true);
             yield return new WaitForSeconds(audioIntroduccion.length);
-            if (robotAnimator) robotAnimator.SetBool("EsHablando", false);
+            if (tieneControllerValido) robotAnimator.SetBool("EsHablando", false);
         }
 
         if (IsServer)
@@ -360,24 +384,47 @@ public class MainGameManager : NetworkBehaviour
         if (IsServer) estadoActual.Value = EstadoJuego.FaseVictoria;
     }
 
+    //private void EjecutarVictoriaLocal()
+    //{
+    //    if (audioVictoria && audioSource) audioSource.PlayOneShot(audioVictoria);
+    //    if (bloqueGameplay) bloqueGameplay.SetActive(false);
+    //    if (bloqueVictoria) bloqueVictoria.SetActive(true);
+
+    //    GenerarPodioDeJugadores();
+
+    //    // 🖐️ 1. Ocultar las manos, mandos e interactores en el bloque final
+    //    if (VRHandControllerSwitcher.Instance != null)
+    //    {
+    //        VRHandControllerSwitcher.Instance.OcultarTodo();
+    //    }
+
+    //    //if (botonReiniciarHost != null)
+    //    //{
+    //    //    botonReiniciarHost.SetActive(IsServer);
+    //    //}
+    //}
+
     private void EjecutarVictoriaLocal()
     {
         if (audioVictoria && audioSource) audioSource.PlayOneShot(audioVictoria);
         if (bloqueGameplay) bloqueGameplay.SetActive(false);
         if (bloqueVictoria) bloqueVictoria.SetActive(true);
 
+        // 🌟 RESTAURAR PASSTHROUGH EN LA FASE DE VICTORIA / PODIO
+        Camera camaraLocal = Camera.main;
+        if (camaraLocal != null)
+        {
+            camaraLocal.clearFlags = CameraClearFlags.SolidColor;
+            camaraLocal.backgroundColor = new Color(0f, 0f, 0f, 0f); // Alfa 0 para Meta Quest 3 Passthrough
+        }
+
         GenerarPodioDeJugadores();
 
-        // 🖐️ 1. Ocultar las manos, mandos e interactores en el bloque final
+        // 🖐️ Ocultar manos, mandos e interactores en la pantalla final
         if (VRHandControllerSwitcher.Instance != null)
         {
             VRHandControllerSwitcher.Instance.OcultarTodo();
         }
-
-        //if (botonReiniciarHost != null)
-        //{
-        //    botonReiniciarHost.SetActive(IsServer);
-        //}
     }
 
     private void GenerarPodioDeJugadores()
@@ -476,6 +523,46 @@ public class MainGameManager : NetworkBehaviour
     }
 
     // 🌟 MÉTODO DE RESETEO TOTAL A ESTADO CERO
+    //public void ReiniciarJuego()
+    //{
+    //    // 1. Detener corrutinas y audios activos
+    //    StopAllCoroutines();
+    //    CancelInvoke();
+    //    if (audioSource != null) audioSource.Stop();
+
+    //    // 2. 🌟 ENCENDER EL BLOQUE 1 (Contiene el Canvas con todos los paneles VR)
+    //    if (bloqueInicio != null) bloqueInicio.SetActive(true);
+
+    //    // 3. Desactivar los bloques secundarios de la simulación 3D
+    //    if (bloqueRobot != null) bloqueRobot.SetActive(false);
+    //    if (bloqueInstrucciones != null) bloqueInstrucciones.SetActive(false);
+    //    if (bloqueGameplay != null) bloqueGameplay.SetActive(false);
+    //    if (bloqueVictoria != null) bloqueVictoria.SetActive(false);
+    //    if (entornoVR != null) entornoVR.SetActive(false);
+
+    //    // 4. Si eres el Servidor, resetear las variables de red
+    //    if (IsServer)
+    //    {
+    //        estadoActual.Value = EstadoJuego.EsperandoLobby;
+    //        jugadoresListos.Value = 0;
+    //    }
+
+    //    // 5. Mandar a limpiar las pistolas y asteroides a GameplayManager
+    //    if (GameplayManager.Instance != null)
+    //    {
+    //        GameplayManager.Instance.LimpiarGameplayParaReset();
+    //    }
+
+    //    // Al reiniciar a estado cero, volvemos a poner los mandos/joysticks iniciales
+    //    if (VRHandControllerSwitcher.Instance != null)
+    //    {
+    //        VRHandControllerSwitcher.Instance.ActivarModoMandos();
+    //    }
+
+    //    Debug.Log("<color=cyan>[MAIN GAME MANAGER]</color> Bloque 1 reactivado y proyecto restablecido a estado cero.");
+    //}
+
+    // 🌟 MÉTODO DE RESETEO TOTAL A ESTADO CERO
     public void ReiniciarJuego()
     {
         // 1. Detener corrutinas y audios activos
@@ -483,35 +570,44 @@ public class MainGameManager : NetworkBehaviour
         CancelInvoke();
         if (audioSource != null) audioSource.Stop();
 
-        // 2. 🌟 ENCENDER EL BLOQUE 1 (Contiene el Canvas con todos los paneles VR)
+        // 2. 🌟 RESTAURAR PASSTHROUGH EN LA CÁMARA VR
+        Camera camaraLocal = Camera.main;
+        if (camaraLocal != null)
+        {
+            // Meta Passthrough exige Solid Color con Alfa en 0 para renderizar las cámaras reales
+            camaraLocal.clearFlags = CameraClearFlags.SolidColor;
+            camaraLocal.backgroundColor = new Color(0f, 0f, 0f, 0f);
+        }
+
+        // 3. 🌟 ENCENDER EL BLOQUE 1 (Canvas con Panel_Inicio_Simplificado)
         if (bloqueInicio != null) bloqueInicio.SetActive(true);
 
-        // 3. Desactivar los bloques secundarios de la simulación 3D
+        // 4. Desactivar los bloques secundarios de la simulación 3D
         if (bloqueRobot != null) bloqueRobot.SetActive(false);
         if (bloqueInstrucciones != null) bloqueInstrucciones.SetActive(false);
         if (bloqueGameplay != null) bloqueGameplay.SetActive(false);
         if (bloqueVictoria != null) bloqueVictoria.SetActive(false);
         if (entornoVR != null) entornoVR.SetActive(false);
 
-        // 4. Si eres el Servidor, resetear las variables de red
+        // 5. Si eres el Servidor, resetear las variables de red
         if (IsServer)
         {
             estadoActual.Value = EstadoJuego.EsperandoLobby;
             jugadoresListos.Value = 0;
         }
 
-        // 5. Mandar a limpiar las pistolas y asteroides a GameplayManager
+        // 6. Mandar a limpiar las pistolas y asteroides a GameplayManager
         if (GameplayManager.Instance != null)
         {
             GameplayManager.Instance.LimpiarGameplayParaReset();
         }
 
-        // Al reiniciar a estado cero, volvemos a poner los mandos/joysticks iniciales
+        // Volvemos a activar los mandos iniciales
         if (VRHandControllerSwitcher.Instance != null)
         {
             VRHandControllerSwitcher.Instance.ActivarModoMandos();
         }
 
-        Debug.Log("<color=cyan>[MAIN GAME MANAGER]</color> Bloque 1 reactivado y proyecto restablecido a estado cero.");
+        Debug.Log("<color=cyan>[MAIN GAME MANAGER]</color> Passthrough restaurado, Bloque 1 reactivado.");
     }
 }

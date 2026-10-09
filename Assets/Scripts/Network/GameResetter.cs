@@ -33,9 +33,20 @@ public class GameResetter : MonoBehaviour
 
     private void EjecutarLimpiezaAbsolutaLocamente()
     {
-        Debug.Log("Recargando escena inicial y reconstruyendo jerarquía...");
-        // Al recargar la escena en modo Single, Unity destruirá automáticamente 
-        // los objetos antiguos y ejecutará los Awake() limpios.
+        Debug.Log("Destruyendo Singletons antiguos y recargando escena inicial...");
+
+        // 🌟 Destruir Singletons persistentes para que no contaminen la escena limpia
+        if (MainGameManager.Instance != null)
+        {
+            Destroy(MainGameManager.Instance.gameObject);
+        }
+
+        if (NetworkManager.Singleton != null)
+        {
+            Destroy(NetworkManager.Singleton.gameObject);
+        }
+
+        // Recargar la escena limpia recreará la cámara y el Passthrough de las Quest 3 desde cero
         SceneManager.LoadScene(nombreEscenaLobby, LoadSceneMode.Single);
     }
 }

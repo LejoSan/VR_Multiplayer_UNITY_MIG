@@ -865,7 +865,7 @@ AudioSource:
   m_audioClip: {fileID: 0}
   m_Resource: {fileID: 8300000, guid: 8ff8b0c6fcc69e640911b8b2221f53da, type: 3}
   m_PlayOnAwake: 0
-  m_Volume: 0.086
+  m_Volume: 1
   m_Pitch: 1
   Loop: 0
   Mute: 0
@@ -873,7 +873,7 @@ AudioSource:
   SpatializePostEffects: 0
   Priority: 128
   DopplerLevel: 1
-  MinDistance: 1.1135871
+  MinDistance: 1.0398455
   MaxDistance: 500
   Pan2D: 0
   rolloffMode: 0
@@ -1530,7 +1530,7 @@ MonoBehaviour:
   audioSource: {fileID: 6940356540466419002}
   faceAnimator: {fileID: 7813277641195695291}
   paramName: isTalking
-  umbralVolumen: 0.0075
+  umbralVolumen: 0.0038
   suavizado: 5
 --- !u!1 &8983387308807514166
 GameObject:
